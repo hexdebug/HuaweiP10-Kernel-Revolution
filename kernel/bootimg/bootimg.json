@@ -1,0 +1,1 @@
+{"cmdline": "loglevel=4 initcall_debug=n page_tracker=on androidboot.selinux=enforcing", "tags_addr": 127926272, "ramdisk_addr": 130023424, "kernel_addr": 524288, "name": "", "padding_size": 2048, "second_addr": 15728640, "os_version": 234881299, "page_size": 2048}
