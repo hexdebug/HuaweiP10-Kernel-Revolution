@@ -39,7 +39,6 @@
 #ifndef SMMU
 #define JPEG_INPUT_PHYADDR 0x40000000
 #define JPEG_OUTPUT_PHYADDR 0x50000000
-#define PREFETCH_BY_PASS (1 << 31)
 #endif
 
 //#define SAMPLEBACK 1
@@ -1005,6 +1004,7 @@ static int hjpeg150_cvdr_fmt_desc_vp_wr(uint32_t width, uint32_t height,
     return 0;
 }
 
+#define PREFETCH_BY_PASS (1 << 31)
 static int hjpeg150_set_vp_wr_ready(cvdr_wr_fmt_desc_t *desc, uint32_t buf_addr)
 {
     void __iomem *cvdr_srt_base = s_hjpeg150.hw_ctl.cvdr_viraddr;//ioremap_nocache();
