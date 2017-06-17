@@ -108,7 +108,7 @@ typedef enum
 //for common_info
 #define LSC_OTP_SIZE            (23 * 17 * 4 * 14 / 8)
 #define PDAF_OTP_SIZE           (PDAF_CORRECT_MAP + PDAF_DEFOCUS_COEF + PDAF_HW_SLOPE_DATA)
-#define MAX_OTP_SIZE            (0x6E2D)
+#define MAX_OTP_SIZE            (0x8000)
 #define PDAF_CORRECT_MAP        352     /* Shield Pixel Correction Map */
 #define PDAF_DEFOCUS_COEF       384     /* Defocus Conversion Coefficient */
 #define PDAF_HW_SLOPE_DATA      768     /* Huawei Phase Detection Slope Data */

@@ -4,7 +4,7 @@
 #if !defined(__TRACE_HISP_H__) || defined(TRACE_HEADER_MULTI_READ)
 #define __TRACE_HISP_H__
 
-#ifdef CHICAGO_CAMERA
+#if defined( CHICAGO_CAMERA  ) || defined( BOSTON_CAMERA  )
 #include <media/huawei/hisp150_cfg.h>
 #else
 #include <media/huawei/hisp_cfg.h>

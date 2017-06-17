@@ -1,5 +1,18 @@
-
-
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+/*
+    2014/09/22  created by zhoujie (00174260)
+    2014/10/09  add dual current set and debug fs by zhoujie
+*/
 #include "hw_flash.h"
 #include <linux/wakelock.h>
 
@@ -36,8 +49,10 @@
 #define OVER_VOLTAGE_PROTECT        0x80
 #define OVER_CURRENT_PROTECT        0x10
 #define OVER_TEMP_PROTECT           0x20
+#define LED_SHORT                   0x0C
 
 #define INVALID_GPIO            999
+//lint -save -e846 -e514 -e84 -e866 -e715 -e778 -e713
 /* Internal data struct define */
 typedef enum {
     RESET=0,
@@ -117,6 +132,8 @@ struct UT_TEST_LM3646
     ssize_t (*hw_lm3646_dual_leds_store)(struct device *dev,struct device_attribute *attr, const char *buf, size_t count);
     ssize_t (*hw_lm3646_lightness_store)(struct device *dev,struct device_attribute *attr, const char *buf, size_t count);
     ssize_t (*hw_lm3646_lightness_show)(struct device *dev,struct device_attribute *attr,char *buf);
+    ssize_t (*hw_lm3646_flash_lightness_store)(struct device *dev,struct device_attribute *attr, const char *buf, size_t count);
+    ssize_t (*hw_lm3646_flash_lightness_show)(struct device *dev,struct device_attribute *attr,char *buf);
     ssize_t (*hw_lm3646_flash_mask_show)(struct device *dev,struct device_attribute *attr,char *buf);
     int (*hw_lm3646_register_attribute)(struct hw_flash_ctrl_t *flash_ctrl, struct device *dev);
     ssize_t (*hw_lm3646_flash_mask_store)(struct device *dev,struct device_attribute *attr, const char *buf, size_t count);
@@ -420,7 +437,7 @@ static int hw_lm3646_set_mode(struct hw_flash_ctrl_t *flash_ctrl, void *data)
     i2c_func->i2c_read(i2c_client, REG_FLAGS1, &val);
     if(val & (OVER_VOLTAGE_PROTECT | OVER_CURRENT_PROTECT)) {
         if(!dsm_client_ocuppy(client_flash)) {
-            dsm_client_record(client_flash, "flash short or open! FlagReg1[0x%x]\n", val);
+            dsm_client_record(client_flash, "flash OVP or OCP! FlagReg1[0x%x]\n", val);
             dsm_client_notify(client_flash, DSM_FLASH_OPEN_SHOTR_ERROR_NO);
             cam_warn("[I/DSM] %s dsm_client_notify", client_flash->client_name);
         }
@@ -578,6 +595,13 @@ static int hw_lm3646_off(struct hw_flash_ctrl_t *flash_ctrl)
         }
     }
     i2c_func->i2c_read(i2c_client, REG_FLAGS2, &val);
+    if (val & LED_SHORT) {
+        if(!dsm_client_ocuppy(client_flash)) {
+            dsm_client_record(client_flash, "flash short fault! FlagReg2[0x%x]\n", val);
+            dsm_client_notify(client_flash, DSM_FLASH_OPEN_SHOTR_ERROR_NO);
+            cam_warn("[I/DSM] %s dsm_client_notify", client_flash->client_name);
+        }
+    }
     i2c_func->i2c_write(i2c_client, REG_ENABLE, MODE_STANDBY);
 
     hw_lm3646_set_pin_strobe(flash_ctrl,LOW);
@@ -698,6 +722,17 @@ struct device_attribute *attr,char *buf)
     return rc;
 }
 
+static ssize_t hw_lm3646_flash_lightness_show(struct device *dev,
+struct device_attribute *attr,char *buf)
+{
+    int rc=0;
+
+    rc = scnprintf(buf, PAGE_SIZE, "mode=%d, data=%d.\n",
+        hw_lm3646_ctrl.state.mode, hw_lm3646_ctrl.state.data);
+
+    return rc;
+}
+
 static int hw_lm3646_param_check(char *buf, unsigned long *param,
 int num_of_par)
 {
@@ -756,6 +791,57 @@ static ssize_t hw_lm3646_lightness_store(struct device *dev,
 
     return count;
 }
+static  int calc_id_to_reg(int flash_id)
+{
+    int data;
+    if(3 == flash_id) {
+        data = 271;
+    } else if (2 == flash_id) {
+        data = 208;
+    } else if (1 == flash_id) {
+        data = 335;
+    } else {
+        data = -1;
+    }
+    return data;
+}
+
+static ssize_t hw_lm3646_flash_lightness_store(struct device *dev,
+    struct device_attribute *attr, const char *buf, size_t count)
+{
+    struct hw_flash_cfg_data cdata = {0};
+    unsigned long param[2]={0};
+    int rc=0;
+
+    rc = hw_lm3646_param_check((char *)buf, param, 2);
+    if (rc < 0) {
+        cam_err("%s failed to check param.", __func__);
+        return rc;
+    }
+    cdata.data = calc_id_to_reg((int)param[0]);
+    if(-1 == cdata.data) {
+        cdata.mode = STANDBY_MODE;
+    } else {
+        cdata.mode = (int)param[1];
+    }
+
+    if (cdata.mode == STANDBY_MODE) {
+        rc = hw_lm3646_off(&hw_lm3646_ctrl);
+        if (rc < 0) {
+            cam_err("%s lm3646 flash off error.", __func__);
+            return rc;
+        }
+    } else {
+        rc = hw_lm3646_on(&hw_lm3646_ctrl, &cdata);
+        if (rc < 0) {
+            cam_err("%s lm3646 flash on error.", __func__);
+            return rc;
+        }
+    }
+
+    return count;
+}
+
 
 static ssize_t hw_lm3646_flash_mask_show(struct device *dev,
     struct device_attribute *attr,char *buf)
@@ -813,6 +899,9 @@ static void hw_lm3646_torch_brightness_set(struct led_classdev *cdev,
 static struct device_attribute hw_lm3646_lightness =
 __ATTR(lightness, 0664, hw_lm3646_lightness_show, hw_lm3646_lightness_store);
 
+static struct device_attribute hw_lm3646_flash_lightness =
+__ATTR(flash_lightness, 0664, hw_lm3646_flash_lightness_show, hw_lm3646_flash_lightness_store);
+
 static struct device_attribute hw_lm3646_dual_leds =
 __ATTR(dual_leds, 0664, hw_lm3646_dual_leds_show, hw_lm3646_dual_leds_store);
 
@@ -841,6 +930,12 @@ static int hw_lm3646_register_attribute(struct hw_flash_ctrl_t *flash_ctrl, stru
     rc = device_create_file(dev, &hw_lm3646_lightness);
     if (rc < 0) {
         cam_err("%s failed to creat lightness attribute.", __func__);
+        goto err_create_lightness_file;
+    }
+
+    rc = device_create_file(dev, &hw_lm3646_flash_lightness);
+    if (rc < 0) {
+        cam_err("%s failed to creat flash_lightness attribute.", __func__);
         goto err_create_lightness_file;
     }
 
@@ -893,6 +988,8 @@ static int hw_lm3646_match(struct hw_flash_ctrl_t *flash_ctrl)
     register_camerafs_attr(&hw_lm3646_dual_leds);
     //add for debug only
     register_camerafs_attr(&hw_lm3646_lightness);
+
+    register_camerafs_attr(&hw_lm3646_flash_lightness);
     return 0;
 }
 
@@ -993,6 +1090,7 @@ struct UT_TEST_LM3646 UT_lm3646 =
 };
 
 #endif /* CONFIG_LLT_TEST */
+//lint -restore
 
 module_init(hw_lm3646_module_init);
 module_exit(hw_lm3646_module_exit);

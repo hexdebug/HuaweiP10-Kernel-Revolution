@@ -810,7 +810,7 @@ int simulated_fw_request(void *isp_msg_r)
 						     stream_info[i].height,
 						     ack_req->
 						     stream_info[i].format);
-						if (NULL != g_preview_yuv_data) {
+						if (NULL != g_preview_yuv_data && buffer_vaddr != -1) {
 							memcpy(buffer_vaddr,
 							       g_preview_yuv_data,
 							       preview_buffer_size);
@@ -818,22 +818,30 @@ int simulated_fw_request(void *isp_msg_r)
 					} else if ((i == STREAM_REP_YUV_OUT)
 						   || (i ==
 						       STREAM_ISP_YUV_OUT_VIDEO)){
+						int width = ack_req->stream_info[i].width;
+						if(ack_req->stream_info[i].stride != 0)
+							width = ack_req->stream_info[i].stride;
 						preview_buffer_size =
 						    get_stream_buffer_size
-						    (ack_req->
-						     stream_info[i].width,
+						    (width,
 						     ack_req->
 						     stream_info[i].height,
 						     ack_req->
 						     stream_info[i].format);
-						load_capture_yuv_data
-						    (isp_msg->u.req_release_camera.cam_id,
-						     buffer_vaddr,
-						     preview_buffer_size,
-						     ack_req->stream_info[i].
-						     width,
-						     ack_req->stream_info
-						     [i].height);
+						cam_info
+					    ("%s().get_stream_buffer_size:%d, width=%d,height=%d,stride=%d",
+					     __func__,preview_buffer_size,ack_req->stream_info[i].width,
+					     ack_req->stream_info[i].height,ack_req->stream_info[i].stride);
+						if (NULL != g_preview_yuv_data && buffer_vaddr != -1) {
+						    load_capture_yuv_data
+						        (isp_msg->u.req_release_camera.cam_id,
+						         buffer_vaddr,
+						         preview_buffer_size,
+						         ack_req->stream_info[i].
+						         width,
+						         ack_req->stream_info
+						         [i].height);
+						}
 					} else {
 						/* to do */
 					}
@@ -1277,22 +1285,46 @@ int simulated_fw_extend_set(void *isp_msg_r)
 	int ret = 0;
 	hisp_msg_t isp_msg_ack;
 	hisp_msg_t *isp_msg = (hisp_msg_t *) isp_msg_r;
-	capture_params_t  *tmp_capture_params_t = NULL;
+	capture_streams_t  *tmp_capture_streams = NULL;
 	int tmp_cam_id = 0;
 
-	if (isp_msg->u.req_extend_set.extend_cmd == SUBCMD_START_CAPTURE) {
-		tmp_capture_params_t = (capture_params_t*)isp_msg->u.req_extend_set.paras;
+	if (isp_msg->u.req_extend_set.extend_cmd == SUBCMD_SET_RAW2YUV_INFO) {
+		tmp_capture_streams = (capture_streams_t*)isp_msg->u.req_extend_set.paras;
 
-		for (i = 0; i < tmp_capture_params_t->streams.count; i++) {
-			tmp_cam_id = tmp_capture_params_t->streams.info[i].cam_id;
-			simulated_fw_camera_info[tmp_cam_id].usecase_config.stream_cfg[STREAM_REP_YUV_OUT].height
-				= tmp_capture_params_t->streams.info[i].resolution.height;
-			simulated_fw_camera_info[tmp_cam_id].usecase_config.stream_cfg[STREAM_REP_YUV_OUT].width
-				= tmp_capture_params_t->streams.info[i].resolution.width;
-			cam_info(" height, width: %d, %d",simulated_fw_camera_info[tmp_cam_id].usecase_config.stream_cfg[STREAM_REP_YUV_OUT].height,
-					simulated_fw_camera_info[tmp_cam_id].usecase_config.stream_cfg[STREAM_REP_YUV_OUT].width);
-			cam_info(" height, width: %u, %u",tmp_capture_params_t->streams.info[i].resolution.height,
-					tmp_capture_params_t->streams.info[i].resolution.width);
+		for (i = 0; i < tmp_capture_streams->count; i++) {
+			tmp_cam_id = tmp_capture_streams->info[i].cam_id;
+			int yuv_width = 0,yuv_height = 0,yuv_stride = 0;
+			if(tmp_capture_streams->info[i].stream_mode == STREAM_NORMAL) {
+				
+				yuv_width = tmp_capture_streams->info[i].resolution.width;
+				yuv_height = tmp_capture_streams->info[i].resolution.height;
+				yuv_stride = tmp_capture_streams->info[i].resolution.stride;
+				cam_info("STREAM_NORMAL resolution width,height,stride %u, %u,%u",yuv_width,
+						yuv_height,yuv_stride);
+			} else if(tmp_capture_streams->info[i].stream_mode == STREAM_LOSSLESS) {
+				
+				yuv_width = tmp_capture_streams->info[i].crop_region.width;
+				yuv_height = tmp_capture_streams->info[i].crop_region.height;
+				yuv_stride = tmp_capture_streams->info[i].crop_region.stride;
+				cam_info("STREAM_LOSSLESS crop width,height,stride %u, %u,%u",yuv_width,
+						yuv_height,yuv_stride);
+			} else if(tmp_capture_streams->info[i].stream_mode == STREAM_SEAMLESS) {
+				
+				yuv_width = tmp_capture_streams->info[i].raw2yuv_params.yuv_width;
+				yuv_height = tmp_capture_streams->info[i].raw2yuv_params.yuv_height;
+				yuv_stride = tmp_capture_streams->info[i].raw2yuv_params.yuv_stride;
+				cam_info("STREAM_SEAMLESS yuv width,height,stride %u, %u,%u",yuv_width,
+						yuv_height,yuv_stride);
+			}
+			if(yuv_width != 0&&yuv_height != 0)
+			{
+				simulated_fw_camera_info[tmp_cam_id].usecase_config.stream_cfg[STREAM_REP_YUV_OUT].width
+					= yuv_width;
+				simulated_fw_camera_info[tmp_cam_id].usecase_config.stream_cfg[STREAM_REP_YUV_OUT].height
+					= yuv_height;
+				simulated_fw_camera_info[tmp_cam_id].usecase_config.stream_cfg[STREAM_REP_YUV_OUT].stride
+					= yuv_stride;
+			}
 		}
 	}
 

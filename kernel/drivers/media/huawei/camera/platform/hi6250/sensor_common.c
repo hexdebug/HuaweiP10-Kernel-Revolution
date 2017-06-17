@@ -315,7 +315,7 @@ int hw_sensor_power_up(sensor_t *s_ctrl)
 	cam_debug("%s enter.", __func__);
     if (s_ctrl->p_atpowercnt){
         if (atomic_read(s_ctrl->p_atpowercnt)) {
-            cam_info("%s (%d): sensor has already powered up. powercnt is %d", __func__, __LINE__,*(s_ctrl->p_atpowercnt));
+            cam_info("%s (%d): sensor has already powered up.", __func__, __LINE__);
             return 0;
         }
     }else{
@@ -371,6 +371,11 @@ int hw_sensor_power_up(sensor_t *s_ctrl)
 				cam_err("%s power up procedure error.", __func__);
 				rc = 0;
 			}
+			break;
+		case SENSOR_AVDD1_EN:
+			cam_debug("%s, seq_type:%u SENSOR_AVDD1_EN", __func__, power_setting->seq_type);
+			rc = hw_sensor_gpio_config(AVDD1_EN, s_ctrl->board_info,
+				power_setting);
 			break;
 		case SENSOR_VCM_AVDD:
 			cam_debug("%s, seq_type:%u SENSOR_VCM_AVDD", __func__, power_setting->seq_type);
@@ -484,10 +489,10 @@ int hw_sensor_power_up(sensor_t *s_ctrl)
 
     if (s_ctrl->p_atpowercnt){
         atomic_set(s_ctrl->p_atpowercnt, 1);
-        cam_info("%s (%d): sensor  powered up finish powercnt is %d", __func__, __LINE__,*(s_ctrl->p_atpowercnt));
+        cam_info("%s (%d): sensor  powered up finish.", __func__, __LINE__);
     }else{
         atomic_set(&s_powered, 1);
-        cam_info("%s (%d): sensor  powered up finish powercnt is %d", __func__, __LINE__,s_powered);
+        cam_info("%s (%d): sensor  powered up finish.", __func__, __LINE__);
     }
 	return rc;
 }
@@ -567,6 +572,11 @@ int hw_sensor_power_down(sensor_t *s_ctrl)
 				cam_err("%s power up procedure error.", __func__);
 				rc = 0;
 			}
+			break;
+		case SENSOR_AVDD1_EN:
+			cam_debug("%s, seq_type:%u SENSOR_AVDD1_EN", __func__, power_setting->seq_type);
+			rc = hw_sensor_gpio_config(AVDD1_EN, s_ctrl->board_info,
+				power_setting);
 			break;
         case SENSOR_MINIISP_VPP:
 			cam_debug("%s, seq_type:%u SENSOR_MINIISP_VPP", __func__, power_setting->seq_type);
@@ -822,7 +832,7 @@ int hw_sensor_i2c_write_seq( sensor_t *s_ctrl, void *data)
 	cdata = (struct sensor_cfg_data *)data;
 	data_length = sizeof(struct sensor_i2c_reg)*cdata->cfg.setting.size;
 
-	cam_info("%s: enter setting=%p size=%d.\n", __func__,
+	cam_info("%s: enter setting=%pK size=%d.\n", __func__,
 			cdata->cfg.setting.setting,
 			(unsigned int)cdata->cfg.setting.size);
 
@@ -963,7 +973,7 @@ int hw_sensor_get_dt_data(struct platform_device *pdev,
 	u32 i, index = 0;
 	char *gpio_tag = NULL;
 	const char *gpio_ctrl_types[IO_MAX] =
-		{"reset", "fsin", "pwdn", "vcm_pwdn", "suspend", "reset2", "ldo_en", "ois", "ois2","","","","", "mipisw", "reset3", "pwdn2"};
+		{"reset", "fsin", "pwdn", "vcm_pwdn", "suspend", "suspend2", "reset2", "ldo_en", "ois", "ois2","","","","", "mipisw", "reset3", "pwdn2", "avdd1_en"};
 
 	cam_debug("enter %s", __func__);
 	sensor_info = kzalloc(sizeof(hwsensor_board_info_t),

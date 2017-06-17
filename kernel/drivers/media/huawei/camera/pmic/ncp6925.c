@@ -314,7 +314,6 @@ static int ncp6925_on(struct hisi_pmic_ctrl_t *pmic_ctrl, void *data)
     struct hisi_pmic_i2c_fn_t *i2c_func;
     struct ncp6925_private_data_t *pdata;
     int gpio_value = 0;
-    u8 reg_value = 0;
 
     cam_info("%s enter.", __func__);
 
@@ -340,50 +339,6 @@ static int ncp6925_on(struct hisi_pmic_ctrl_t *pmic_ctrl, void *data)
     }
 
     i2c_func->i2c_write(i2c_client, CHX_ERR, 0x00);
-
-    if (pdata->rearm_id == ON_REARM) {
-        cam_info("%s: pmic rearm_id(ON_REARM): %u", __func__, pdata->rearm_id);
-
-        // TSD warning: INT_ACK3:00000100
-        i2c_func->i2c_read(i2c_client, INT_ACK3, &reg_value);
-        cam_info("%s: pmic INT_ACK3 = %d.", __func__, reg_value);
-        if ((reg_value & 0x04) == 0x04) {
-            if (!dsm_client_ocuppy(client_pmic)) {
-                dsm_client_record(client_pmic, "NCP6925: thermal shutdown error.\n");
-                dsm_client_notify(client_pmic, DSM_CAMPMIC_TSD_ERROR_NO);
-                cam_warn("[I/DSM] %s : NCP6925 thermal shutdown error.", client_pmic->client_name);
-            }
-        }
-
-        // under voltage lock
-        reg_value = 0;
-        i2c_func->i2c_read(i2c_client, INT_ACK1, &reg_value);
-        cam_info("%s: pmic INT_ACK1 = %d.", __func__, reg_value);
-        if (reg_value != 0) {
-            if (!dsm_client_ocuppy(client_pmic)) {
-                dsm_client_record(client_pmic, "NCP6925: under voltage threshold error.\n");
-                dsm_client_notify(client_pmic, DSM_CAMPMIC_UNDER_VOLTAGE_ERROR_NO);
-                cam_warn("[I/DSM] %s : NCP6925 under voltage lock.", client_pmic->client_name);
-            }
-        }
-
-        // over current
-        reg_value = 0;
-        i2c_func->i2c_read(i2c_client, INT_ACK2, &reg_value);
-        cam_info("%s: pmic INT_ACK2 = %d.", __func__, reg_value);
-        if (reg_value != 0) {
-            if (!dsm_client_ocuppy(client_pmic)) {
-                dsm_client_record(client_pmic, "NCP6925: over current error.\n");
-                dsm_client_notify(client_pmic, DSM_CAMPMIC_OVER_CURRENT_ERROR_NO);
-                cam_warn("[I/DSM] %s : NCP6925 over current error.", client_pmic->client_name);
-            }
-        }
-    } else if (pdata->rearm_id == TI_REARM) {
-        cam_info("%s: pmic rearm_id(TI_REARM): %u", __func__, pdata->rearm_id);
-    } else {
-        cam_err("InvalidArgument chipid %u", pdata->rearm_id);
-    }
-
     ncp6925_poweron = 1;
     return 0;
 }
@@ -407,6 +362,112 @@ static int ncp6925_off(struct hisi_pmic_ctrl_t *pmic_ctrl)
 
     return 0;
 }
+
+static int ncp6925_check_state_exception(struct hisi_pmic_ctrl_t *pmic_ctrl)
+{
+    struct hisi_pmic_i2c_client *i2c_client;
+    struct hisi_pmic_i2c_fn_t *i2c_func;
+    u8 reg_value = 0;
+
+    if (NULL == pmic_ctrl) {
+        cam_err("%s pmic_ctrl is NULL.", __func__);
+        return -1;
+    }
+
+    i2c_client = pmic_ctrl->pmic_i2c_client;
+    i2c_func = pmic_ctrl->pmic_i2c_client->i2c_func_tbl;
+
+    // TSD warning: INT_ACK3:00000100
+    i2c_func->i2c_read(i2c_client, INT_ACK3, &reg_value);
+    cam_info("%s: pmic INT_ACK3 = %d.", __func__, reg_value);
+    if ((reg_value & 0x04) == 0x04) {
+        if (!dsm_client_ocuppy(client_pmic)) {
+            dsm_client_record(client_pmic, "NCP6925: thermal shutdown error.\n");
+            dsm_client_notify(client_pmic, DSM_CAMPMIC_TSD_ERROR_NO);
+            cam_warn("[I/DSM] %s : NCP6925 thermal shutdown error.", client_pmic->client_name);
+        }
+    }
+
+    // under voltage lock
+    reg_value = 0;
+    i2c_func->i2c_read(i2c_client, INT_ACK1, &reg_value);
+    cam_info("%s: pmic INT_ACK1 = %d.", __func__, reg_value);
+    if (reg_value != 0) {
+        if (!dsm_client_ocuppy(client_pmic)) {
+            dsm_client_record(client_pmic, "NCP6925: under voltage threshold error.\n");
+            dsm_client_notify(client_pmic, DSM_CAMPMIC_UNDER_VOLTAGE_ERROR_NO);
+            cam_warn("[I/DSM] %s : NCP6925 under voltage lock.", client_pmic->client_name);
+        }
+    }
+
+    // over current
+    reg_value = 0;
+    i2c_func->i2c_read(i2c_client, INT_ACK2, &reg_value);
+    cam_info("%s: pmic INT_ACK2 = %d.", __func__, reg_value);
+    if (reg_value != 0) {
+        if (!dsm_client_ocuppy(client_pmic)) {
+            dsm_client_record(client_pmic, "NCP6925: over current error.\n");
+            dsm_client_notify(client_pmic, DSM_CAMPMIC_OVER_CURRENT_ERROR_NO);
+            cam_warn("[I/DSM] %s : NCP6925 over current error.", client_pmic->client_name);
+        }
+    }
+
+    return 0;
+}
+
+static int twl80125_check_state_exception(struct hisi_pmic_ctrl_t *pmic_ctrl)
+{
+    struct hisi_pmic_i2c_client *i2c_client;
+    struct hisi_pmic_i2c_fn_t *i2c_func;
+    u8 reg_value = 0;
+
+    if (NULL == pmic_ctrl) {
+        cam_err("%s pmic_ctrl is NULL.", __func__);
+        return -1;
+    }
+
+    i2c_client = pmic_ctrl->pmic_i2c_client;
+    i2c_func = pmic_ctrl->pmic_i2c_client->i2c_func_tbl;
+
+    i2c_func->i2c_read(i2c_client, CHX_ERR, &reg_value);
+    cam_info("%s: pmic CHX_ERR = %d.", __func__, reg_value);
+    if ((reg_value & 0x0E) == 0x0E) {
+        if(dsm_client_ocuppy(client_pmic)) {
+            dsm_client_record(client_pmic, "TWL80125: thermal shutdown error.\n");
+            dsm_client_notify(client_pmic, DSM_CAMPMIC_TSD_ERROR_NO);
+            cam_warn("[I/DSM] %s : TWL80125 thermal shutdown error.", client_pmic->client_name);
+        }
+    }
+
+    i2c_func->i2c_write(i2c_client, CHX_ERR, 0x00);
+    return 0;
+}
+
+static int pmic_check_state_exception(struct hisi_pmic_ctrl_t *pmic_ctrl)
+{
+    struct ncp6925_private_data_t *pdata;
+    if (NULL == pmic_ctrl) {
+        cam_err("%s pmic_ctrl is NULL.", __func__);
+        return -1;
+    }
+    pdata = (struct ncp6925_private_data_t *)pmic_ctrl->pdata;
+    if(NULL == pdata) {
+        cam_err("%s pdata is NULL", __func__);
+        return -1;
+    }
+
+    if (pdata->rearm_id == ON_REARM) {
+        cam_info("%s: pmic rearm_id(ON_REARM): %u", __func__, pdata->rearm_id);
+        ncp6925_check_state_exception(pmic_ctrl);
+    } else if (pdata->rearm_id == TI_REARM) {
+        cam_info("%s: pmic rearm_id(TI_REARM): %u", __func__, pdata->rearm_id);
+        twl80125_check_state_exception(pmic_ctrl);
+    } else {
+        cam_err("InvalidArgument chipid %u", pdata->rearm_id);
+    }
+    return 0;
+}
+
 
 static int ncp6925_match(struct hisi_pmic_ctrl_t *pmic_ctrl)
 {
@@ -802,6 +863,7 @@ static struct hisi_pmic_fn_t ncp6925_func_tbl = {
     .pmic_get_dt_data = ncp6925_get_dt_data,
     .pmic_seq_config = ncp6925_seq_config,
     .pmic_register_attribute = ncp6925_register_attribute,
+    .pmic_check_exception = pmic_check_state_exception,
 };
 
 struct hisi_pmic_ctrl_t ncp6925_ctrl = {

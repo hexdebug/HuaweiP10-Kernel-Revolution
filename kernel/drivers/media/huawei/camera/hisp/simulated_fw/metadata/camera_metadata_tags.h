@@ -596,6 +596,17 @@ typedef enum camera_metadata_enum_android_control_af_state {
     ANDROID_CONTROL_AF_STATE_PASSIVE_UNFOCUSED,
 } camera_metadata_enum_android_control_af_state_t;
 
+typedef enum camera_metadata_enum_android_hw_9300_test_switch_mode {
+    ANDROID_HW_MMI_EQUIP_OFF,
+    ANDROID_HW_MMI_EQUIP_ON,
+    ANDROID_HW_MMI_EQUIP_REAR_FAR,
+    ANDROID_HW_MMI_EQUIP_REAR_NEAR,
+    ANDROID_HW_MMI_EQUIP_FRONT_FAR,
+    ANDROID_HW_MMI_EQUIP_FRONT_NEAR,
+    ANDROID_HW_MMI_EQUIP_FRONT_MIDDLE,
+    ANDROID_HW_MMI_EQUIP_MAX,
+} camera_metadata_enum_android_hw_9300_test_switch_mode_t;
+
 // ANDROID_CONTROL_AWB_STATE
 typedef enum camera_metadata_enum_android_control_awb_state {
     ANDROID_CONTROL_AWB_STATE_INACTIVE,

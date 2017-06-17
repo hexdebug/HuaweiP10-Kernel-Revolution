@@ -1,4 +1,4 @@
-comment "Huawei Sensor"
+comment "Huawei Sensor hi3635"
 
 source "drivers/media/huawei/camera/sensor/vcm/Kconfig"
 source "drivers/media/huawei/camera/sensor/flash/Kconfig"
@@ -117,11 +117,6 @@ config HUAWEI_CAMERA_USE_IMX219
 
 config HUAWEI_CAMERA_USE_OV8858
 	bool "ov8858"
-    default y
-	depends on HUAWEI_CAMERA
-
-config HISI_CAMERA_FLASH
-	tristate "hisi_flash"
     default y
 	depends on HUAWEI_CAMERA
 

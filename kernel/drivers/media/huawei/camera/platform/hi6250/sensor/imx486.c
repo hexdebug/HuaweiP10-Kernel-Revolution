@@ -14,10 +14,14 @@
 
 #define I2S(i) container_of(i, sensor_t, intf)
 
-extern struct hw_csi_pad hw_csi_pad;
-static hwsensor_vtbl_t s_imx486_vtbl;
+//lint -save -e846 -e514 -e866 -e30 -e84 -e785 -e64 -e826 -e838 -e715 -e747 -e778 -e774 -e732 -e650 -e31 -e731 -e528 -e753 -e737
 
-static bool power_on_status = false;//false: power off, true:power on
+char *sensor_dts_name = "IMX486_VENDOR";
+
+extern struct hw_csi_pad hw_csi_pad;
+hwsensor_vtbl_t s_imx486_vtbl;
+
+bool power_on_status = false;//false: power off, true:power on
 int imx486_config(hwsensor_intf_t* si, void  *argp);
 
 struct sensor_power_setting hw_imx486_power_up_setting[] = {
@@ -68,7 +72,7 @@ struct sensor_power_setting hw_imx486_power_up_setting[] = {
     //MCAM1 DVDD 1.2V
     {
         .seq_type = SENSOR_DVDD2,
-        .config_val = LDO_VOLTAGE_1P1V,
+        .config_val = LDO_VOLTAGE_1P2V,
         .sensor_index = SENSOR_INDEX_INVALID,
         .delay = 1,
     },
@@ -81,15 +85,15 @@ struct sensor_power_setting hw_imx486_power_up_setting[] = {
         .sensor_index = SENSOR_INDEX_INVALID,
         .delay = 1,
     },
-    #if 0
-    //MCAM1 VCM Enable
+
+    //MCAM1 VCM PD Enable
     {
         .seq_type = SENSOR_VCM_PWDN,
         .config_val = SENSOR_GPIO_HIGH,
         .sensor_index = SENSOR_INDEX_INVALID,
         .delay = 1,
     },
-    #endif
+
     {
         .seq_type = SENSOR_MCLK,
         .sensor_index = SENSOR_INDEX_INVALID,
@@ -115,7 +119,7 @@ struct sensor_power_setting hw_imx486_power_down_setting[] = {
         .sensor_index = SENSOR_INDEX_INVALID,
         .delay = 1,
     },
-    #if 0
+
     //MCAM1 VCM Enable
     {
         .seq_type = SENSOR_VCM_PWDN,
@@ -123,7 +127,7 @@ struct sensor_power_setting hw_imx486_power_down_setting[] = {
         .sensor_index = SENSOR_INDEX_INVALID,
         .delay = 1,
     },
-    #endif
+
     //MCAM1 AFVDD 2.85V
     {
         .seq_type = SENSOR_VCM_AVDD,
@@ -135,7 +139,7 @@ struct sensor_power_setting hw_imx486_power_down_setting[] = {
     //MCAM1 DVDD 1.2V
     {
         .seq_type = SENSOR_DVDD2,
-        .config_val = LDO_VOLTAGE_1P1V,
+        .config_val = LDO_VOLTAGE_1P2V,
         .sensor_index = SENSOR_INDEX_INVALID,
         .delay = 1,
     },
@@ -180,7 +184,7 @@ struct sensor_power_setting hw_imx486_power_down_setting[] = {
 };
 
 atomic_t volatile imx486_powered = ATOMIC_INIT(0);
-static sensor_t s_imx486 =
+sensor_t s_imx486 =
 {
     .intf = { .vtbl = &s_imx486_vtbl, },
     .power_setting_array = {
@@ -194,7 +198,7 @@ static sensor_t s_imx486 =
      .p_atpowercnt = &imx486_powered,
 };
 
-static const struct of_device_id
+const struct of_device_id
 s_imx486_dt_match[] =
 {
     {
@@ -207,7 +211,7 @@ s_imx486_dt_match[] =
 
 MODULE_DEVICE_TABLE(of, s_imx486_dt_match);
 
-static struct platform_driver
+struct platform_driver
 s_imx486_driver =
 {
     .driver =
@@ -286,30 +290,67 @@ int imx486_csi_disable(hwsensor_intf_t* si)
     return 0;
 }
 
-static int
-imx486_match_id(
-        hwsensor_intf_t* si, void * data)
+int imx486_match_id(hwsensor_intf_t* si, void * data)
 {
-		sensor_t* sensor = I2S(si);
-		struct sensor_cfg_data *cdata = (struct sensor_cfg_data *)data;
+	sensor_t* sensor = I2S(si);
+	struct sensor_cfg_data *cdata = (struct sensor_cfg_data *)data;
+	int32_t module_id = 0;
+	char *sensor_name [] = {"IMX486_OFILM", "IMX486_SUNNY"};
+	int rc = 0;
 
-		cam_info("%s enter.", __func__);
+    memset(cdata->cfg.name, 0, DEVICE_NAME_SIZE);
+	if (!strncmp(sensor->board_info->name, sensor_dts_name, strlen(sensor_dts_name))) {
+		rc = gpio_request(sensor->board_info->gpios[FSIN].gpio, NULL);
+		if(rc < 0) {
+			cam_err("%s failed to request gpio[%d]", __func__, sensor->board_info->gpios[FSIN].gpio);
+			return rc;
+		}
 
-		cdata->data = sensor->board_info->sensor_index;
+        cam_info("%s gpio[%d].", __func__, sensor->board_info->gpios[FSIN].gpio);
 
-		hwsensor_writefile(sensor->board_info->sensor_index,
-			sensor->board_info->name);
-		return 0;
+		rc = gpio_direction_input(sensor->board_info->gpios[FSIN].gpio);
+		if (rc < 0) {
+		    cam_err("%s failed to config gpio(%d) input.\n",__func__, sensor->board_info->gpios[FSIN].gpio);
+		}
+
+		module_id = gpio_get_value_cansleep(sensor->board_info->gpios[FSIN].gpio);
+		if (module_id < 0) {
+		    cam_err("%s failed to get gpio(%d) value(%d).\n",__func__, sensor->board_info->gpios[FSIN].gpio, module_id);
+		}
+
+		cam_info("%s module_id = %d", __func__,module_id);
+
+		gpio_free(sensor->board_info->gpios[FSIN].gpio);
+
+		if (0 == module_id) {//ofilm
+		    strncpy(cdata->cfg.name, sensor_name[0], strlen(sensor_name[0])+1);
+		    cdata->data = sensor->board_info->sensor_index;
+		} else if(1 == module_id){//sunny
+		    strncpy(cdata->cfg.name, sensor_name[1], strlen(sensor_name[1])+1);
+		    cdata->data = sensor->board_info->sensor_index;
+		}else{
+            cam_err("%s module unknown", __func__,module_id);
+		}
+	} else {
+	    strncpy(cdata->cfg.name, sensor->board_info->name, strlen(sensor->board_info->name)+1);
+	    cdata->data = sensor->board_info->sensor_index;
+	}
+
+    if (cdata->data != SENSOR_INDEX_INVALID) {
+        cam_info("%s, cdata->cfg.name = %s", __func__,cdata->cfg.name );
+    }
+
+    return rc;
 }
 
 #if 0
-static ssize_t imx486_powerctrl_show(struct device *dev,
+ssize_t imx486_powerctrl_show(struct device *dev,
 	struct device_attribute *attr,char *buf)
 {
         cam_info("enter %s", __func__);
         return 1;
 }
-static ssize_t imx486_powerctrl_store(struct device *dev,
+ssize_t imx486_powerctrl_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
 	int state = simple_strtol(buf, NULL, 10);
@@ -324,7 +365,7 @@ static ssize_t imx486_powerctrl_store(struct device *dev,
 }
 
 
-static struct device_attribute imx486_powerctrl =
+struct device_attribute imx486_powerctrl =
     __ATTR(power_ctrl, 0664, imx486_powerctrl_show, imx486_powerctrl_store);
 
 int imx486_register_attribute(hwsensor_intf_t* intf, struct device* dev)
@@ -344,7 +385,7 @@ err_create_power_ctrl:
 }
 #endif
 
-static hwsensor_vtbl_t
+hwsensor_vtbl_t
 s_imx486_vtbl =
 {
 	.get_name = imx486_get_name,
@@ -408,7 +449,7 @@ imx486_config(
 	return ret;
 }
 
-static int32_t
+int32_t
 imx486_platform_probe(
         struct platform_device* pdev)
 {
@@ -434,7 +475,7 @@ imx486_sensor_probe_fail:
 	return rc;
 }
 
-static int __init
+int __init
 imx486_init_module(void)
 {
     cam_notice("enter %s",__func__);
@@ -442,15 +483,20 @@ imx486_init_module(void)
             imx486_platform_probe);
 }
 
-static void __exit
+void __exit
 imx486_exit_module(void)
 {
     rpmsg_sensor_unregister((void*)&s_imx486);
     hwsensor_unregister(&s_imx486.intf);
     platform_driver_unregister(&s_imx486_driver);
 }
+//lint -restore
 
+/*lint -e528 -esym(528,*)*/
 module_init(imx486_init_module);
 module_exit(imx486_exit_module);
+/*lint -e528 +esym(528,*)*/
+/*lint -e753 -esym(753,*)*/
 MODULE_DESCRIPTION("imx486");
 MODULE_LICENSE("GPL v2");
+/*lint -e753 +esym(753,*)*/

@@ -1,5 +1,18 @@
-
-
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+/*
+    2016/09/19  created by huxiaoming
+    2016/10/27  modified by huanglibo
+*/
 #include "hw_flash.h"
 #include <linux/wakelock.h>
 
@@ -549,11 +562,11 @@ static int hw_mp3336_set_mode(struct hw_flash_ctrl_t *flash_ctrl, void *data)
 
         i2c_func->i2c_write(i2c_client, REG_L1_FL, (unsigned char)regcurrentflash1);
         i2c_func->i2c_write(i2c_client, REG_L2_FL, (unsigned char)regcurrentflash2);
-        cam_info("REG_L1_FL = 0x%x, REG_L2_FL = 0x%x flash1 = 0x%x, flash2 = 0x%x", REG_L1_FL, REG_L2_FL , regcurrentflash1, regcurrentflash2);
+        cam_info("flash1 = 0x%x, flash2 = 0x%x", regcurrentflash1, regcurrentflash2);
     } else {
         i2c_func->i2c_write(i2c_client, REG_L1_TOR, (unsigned char)regcurrenttorch1);
         i2c_func->i2c_write(i2c_client, REG_L2_TOR, (unsigned char)regcurrenttorch2);
-        cam_info("REG_L1_TOR = 0x%x, REG_L2_TOR = 0x%x torch1 = 0x%x, torch2 = 0x%x", REG_L1_TOR, REG_L2_TOR , regcurrenttorch1, regcurrenttorch2);
+        cam_info("torch1 = 0x%x, torch2 = 0x%x", regcurrenttorch1, regcurrenttorch2);
     }
 
     i2c_func->i2c_read(i2c_client, REG_MODE, &reg1_val);

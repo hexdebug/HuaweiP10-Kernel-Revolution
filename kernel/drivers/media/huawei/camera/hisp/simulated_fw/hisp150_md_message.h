@@ -3,7 +3,7 @@
 #define __HISP150_MD_MESSAGE_H__
 
 #include "hisp/hisp150/chromatix.h"
-
+#include "hisp/chromatix_gyro.h"
 /*****************************************************************************
                   Histar_ISP Algo Extend_Cmd Message
 *******************************************************************************/
@@ -23,6 +23,7 @@
 #define PIPELINE_COUNT          (2)
 #define OIS_CALIB_DATA_LENGTH   92
 #define OIS_DATA_MAX 10
+#define SEAMLESS_INFO_SEQUENCE_MAX_SIZE 10
 
 typedef enum
 {
@@ -183,9 +184,9 @@ typedef enum {
     MODE_OTP,
     MODE_SEQUENCE_MANUAL_FOCUS,
     MODE_RESUME_SELECT,
+    MODE_SEAMLESS,
 } capture_mode_e;
 
-/* crop_region_info_t */
 typedef struct _crop_region_info_t
 {
     unsigned int   x;
@@ -197,21 +198,52 @@ typedef struct _crop_region_info_t
 typedef enum capture_stream_mode {
     STREAM_NORMAL,
     STREAM_LOSSLESS,
+    STREAM_SEAMLESS,
 } capture_stream_mode_t;
 
-typedef struct stream_resolution {
+typedef struct _normal_stream_resolution_t {
     unsigned int width;
     unsigned int height;
-} stream_resolution_t;
+    unsigned int stride;
+} normal_stream_resolution_t;
+
+typedef struct _lossless_stream_info_t
+{
+    unsigned int   x;
+    unsigned int   y;
+    unsigned int   width;
+    unsigned int   height;
+    unsigned int   stride;
+} lossless_stream_info_t;
+
+typedef struct _raw2yuv_params_info_t
+{
+    unsigned int raw_width;
+    unsigned int raw_height;
+    unsigned int raw_stride;
+    unsigned int raw_format;
+    unsigned int yuv_width;
+    unsigned int yuv_height;
+    unsigned int yuv_stride;
+    unsigned int yuv_format;
+} raw2yuv_params_info_t;
+
+typedef struct _seamless_params_info_t
+{
+    unsigned char seq_num;
+    unsigned char seq_data[SEAMLESS_INFO_SEQUENCE_MAX_SIZE];
+} seamless_params_info_t;
 
 typedef struct capture_stream_info {
     capture_stream_mode_t stream_mode;
 
     unsigned int cam_id;
-    unsigned int stride;
+    unsigned int yuvnfDS_buf_addr;
+    unsigned int yuvnfDS_buf_size;
     union {
-        stream_resolution_t resolution;
-        crop_region_info_t crop_region;
+        normal_stream_resolution_t resolution;
+        lossless_stream_info_t crop_region;
+        raw2yuv_params_info_t raw2yuv_params;
     };
 } capture_stream_info_t;
 
@@ -223,7 +255,6 @@ typedef struct capture_streams {
 typedef struct capture_params_t {
     unsigned int flow;//camera_flow_e
     unsigned int mode;//capture_mode_e
-    capture_streams_t streams;
 
     union {
         normal_capture_params_t normal_params;
@@ -234,6 +265,7 @@ typedef struct capture_params_t {
         manual_focus_params_t manual_focus;
         otp_ae_params_t otp;
         sequence_manual_focus_params_t sequence_manual_focus;
+        seamless_params_info_t seamless_params;
     };
 
 } capture_params_t;
@@ -381,6 +413,9 @@ typedef struct
     unsigned int motion_state;
 } motion_info_t;
 
+typedef struct _aperture_mono_t {
+    uint8_t is_aperture_mono;
+} aperture_mono_t;
 /*****************************************************************************
                   Histar_ISP 150 Metadata Struct
 *******************************************************************************/
@@ -429,7 +464,8 @@ typedef struct
     unsigned int raw_height;
     bayer_pattern_e raw_pattern;//bayer_pattern_e
     unsigned int mono_mode;//reuse bayer_pattern_e????
-    int          reserved[11];
+    unsigned char type; // frame type
+    int          reserved[10];
 } common_info_md_t;
 
 /* blc  metadata */
@@ -537,7 +573,8 @@ typedef struct {
     char            motion_state;
 
     char            expo_prefer;
-    unsigned char   reserved_char[7];
+    char            target_shift;
+    unsigned char   reserved_char[6];
 } ae_algo_status;//40bytes
 
 typedef struct {
@@ -1650,7 +1687,8 @@ typedef struct _flash_ref_io_t
     unsigned int  flash_scene_weight; //for cc,ce
     unsigned int  flash_state;//for cc, ce
     unsigned char flash_mode;
-    unsigned char reserved[3];
+    unsigned char resume_precapture_enable;
+    unsigned char reserved[2];
 }flash_ref_io_t;
 
 typedef struct
@@ -1718,7 +1756,10 @@ typedef struct _awb_ref_io_t
     unsigned short          awb_blk_pos_x[ORI_AWB_BLOCK_COLS];    //for minilsc
     unsigned short          awb_blk_pos_y[ORI_AWB_BLOCK_ROWS];    // for minilsc
     float                   rgbg_flash[2];
-    unsigned char*          fn;
+    union {
+        unsigned char*          fn;
+        int reserved_fn[2];
+    };
 }awb_ref_io_t;
 
 // lsc_ref_io
@@ -1921,6 +1962,8 @@ typedef struct _global_ref_io_t
     laser_io_t          laser;
     ae_face_ref_io_t    ae_face;
     ois_update_data_t   ois;     //for warp
+    unsigned int        ois_ts; // ois info timestamp
+    unsigned int        reserved;
 }global_ref_io_t;
 
 /////////////////////////////////////////////

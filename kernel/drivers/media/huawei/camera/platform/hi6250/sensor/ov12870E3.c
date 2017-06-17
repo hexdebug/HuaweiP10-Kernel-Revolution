@@ -296,7 +296,6 @@ ov12870E3_match_id(
 
     cdata->data = sensor->board_info->sensor_index;
 
-    hwsensor_writefile(sensor->board_info->sensor_index, sensor->board_info->name);
     return 0;
 
 }

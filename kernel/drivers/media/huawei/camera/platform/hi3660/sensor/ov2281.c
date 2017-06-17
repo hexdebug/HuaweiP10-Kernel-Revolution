@@ -18,8 +18,6 @@
 #define CTL_RESET_HOLD    (0)
 #define CTL_RESET_RELEASE (1)
 
-static bool s_ov2281_power_on = false;
-
 static struct sensor_power_setting ov2281_power_setting[] = {
 
 	//SCAM1 AVDD 2.8V
@@ -41,12 +39,12 @@ static struct sensor_power_setting ov2281_power_setting[] = {
 	},
 
 	//enable gpio51 output iovdd 1.8v
-    {
-        .seq_type = SENSOR_LDO_EN,
-        .config_val = SENSOR_GPIO_LOW,
-        .sensor_index = SENSOR_INDEX_INVALID,
-        .delay = 0,
-    },
+	{
+		.seq_type = SENSOR_LDO_EN,
+		.config_val = SENSOR_GPIO_LOW,
+		.sensor_index = SENSOR_INDEX_INVALID,
+		.delay = 0,
+	},
 
 	{
 		.seq_type = SENSOR_MCLK,
@@ -64,16 +62,14 @@ static struct sensor_power_setting ov2281_power_setting[] = {
 
 
 static char const*
-ov2281_get_name(
-        hwsensor_intf_t* si)
+ov2281_get_name(hwsensor_intf_t* si)
 {
     sensor_t* sensor = I2S(si);
     return sensor->board_info->name;
 }
 
 static int
-ov2281_power_up(
-        hwsensor_intf_t* si)
+ov2281_power_up(hwsensor_intf_t* si)
 {
     int ret = 0;
     sensor_t* sensor = NULL;
@@ -118,12 +114,14 @@ ov2281_power_down( hwsensor_intf_t* si)
     return ret;
 }
 
-static int ov2281_csi_enable(hwsensor_intf_t* si)
+static int
+ov2281_csi_enable(hwsensor_intf_t* si)
 {
     return 0;
 }
 
-static int ov2281_csi_disable(hwsensor_intf_t* si)
+static int
+ov2281_csi_disable(hwsensor_intf_t* si)
 {
     return 0;
 }
@@ -142,8 +140,9 @@ ov2281_match_id(
 
     return 0;
 }
-// to confirm
-static int ov2281_do_hw_reset(hwsensor_intf_t* si, int ctl, int id)
+
+static int
+ov2281_do_hw_reset(hwsensor_intf_t* si, int ctl, int id)
 {
     char *state = NULL;
     sensor_t* sensor = I2S(si);
@@ -181,28 +180,23 @@ static int ov2281_do_hw_reset(hwsensor_intf_t* si, int ctl, int id)
 }
 
 static int
-ov2281_config(
-        hwsensor_intf_t* si,
-        void  *argp)
+ov2281_config(hwsensor_intf_t* si, void  *argp)
 {
     struct sensor_cfg_data *data;
 
     int ret =0;
     data = (struct sensor_cfg_data *)argp;
+    if(data == NULL) {
+        cam_err("%s config data is null", __func__);
+        return ret;
+    }
     cam_debug("ov2281 cfgtype = %d",data->cfgtype);
     switch(data->cfgtype){
         case SEN_CONFIG_POWER_ON:
-            if (!s_ov2281_power_on) {
-				cam_info("enter power on branch %s",__func__);
-                ret = si->vtbl->power_up(si);
-                s_ov2281_power_on = true;
-            }
+            ret = si->vtbl->power_up(si);
             break;
         case SEN_CONFIG_POWER_OFF:
-            if (s_ov2281_power_on) {
-                ret = si->vtbl->power_down(si);
-                s_ov2281_power_on = false;
-            }
+            ret = si->vtbl->power_down(si);
             break;
         case SEN_CONFIG_WRITE_REG:
             break;
@@ -246,7 +240,7 @@ static hwsensor_vtbl_t s_ov2281_vtbl =
 
 
 /* individual driver data for each device */
-atomic_t volatile ov2281_powered = ATOMIC_INIT(0);
+static atomic_t volatile ov2281_powered = ATOMIC_INIT(0);
 static sensor_t s_ov2281 =
 {
     .intf = { .vtbl = &s_ov2281_vtbl, },//common intf
@@ -313,7 +307,6 @@ ov2281_platform_probe(
     intf = (hwsensor_intf_t*)id->data;
     sensor = I2S(intf);
 
-    cam_info("zpc to get dt data :%s",__func__);
     rc = hw_sensor_get_dt_data(pdev, sensor);
     if (rc < 0) {
         cam_err("%s no dt data", __func__);
@@ -321,8 +314,8 @@ ov2281_platform_probe(
     }
     sensor->dev = &pdev->dev;
 
-    rc = hwsensor_register(pdev, intf);
-    rc = rpmsg_sensor_register(pdev, (void*)sensor);
+    rc = hwsensor_register(pdev, intf);/* [false alarm]:rc normal code  */
+    rc = rpmsg_sensor_register(pdev, (void*)sensor);/* [false alarm]:rc normal code  */
 
     return rc;
 }

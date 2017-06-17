@@ -290,118 +290,55 @@ int imx386E3_csi_disable(hwsensor_intf_t* si)
     return 0;
 }
 
-static int
-imx386E3_match_id(
-        hwsensor_intf_t* si, void * data)
+static int imx386E3_match_id(hwsensor_intf_t* si, void * data)
 {
 	sensor_t* sensor = I2S(si);
 	struct sensor_cfg_data *cdata = (struct sensor_cfg_data *)data;
-	uint32_t module_id_0 = 0;
-	uint32_t module_id_1 = 0;
-	struct pinctrl_state *pinctrl_def;
-	struct pinctrl_state *pinctrl_idle;
-	struct pinctrl *p;
+	int32_t module_id = 0;
 	char *sensor_name [] = {"IMX386E3_OFILM", "IMX386E3_SUNNY"};
 	int rc = 0;
 
-	memset(cdata->cfg.name, 0, DEVICE_NAME_SIZE);
+    memset(cdata->cfg.name, 0, DEVICE_NAME_SIZE);
 	if (!strncmp(sensor->board_info->name, sensor_dts_name, strlen(sensor_dts_name))) {
-	    p = devm_pinctrl_get(s_imx386E3.dev);
-	    if (IS_ERR_OR_NULL(p)) {
-	        cam_err("could not get pinctrl.\n");
-	        rc = -1;
-	        goto matchID_exit;
-	    }
+		rc = gpio_request(sensor->board_info->gpios[FSIN].gpio, NULL);
+		if(rc < 0) {
+			cam_err("%s failed to request gpio[%d]", __func__, sensor->board_info->gpios[FSIN].gpio);
+			return rc;
+		}
 
-	    rc = gpio_request(sensor->board_info->gpios[FSIN].gpio, NULL);
-	    if(rc < 0) {
-	        cam_err("%s failed to request gpio[%d]", __func__, sensor->board_info->gpios[FSIN].gpio);
-	        rc = -1;
-	        goto matchID_exit;
-	    }
-	    cam_info("%s gpio[%d].", __func__, sensor->board_info->gpios[FSIN].gpio);
+        cam_info("%s gpio[%d].", __func__, sensor->board_info->gpios[FSIN].gpio);
 
-	    pinctrl_def = pinctrl_lookup_state(p, "default");
-	    if (IS_ERR_OR_NULL(pinctrl_def)) {
-	        cam_err("could not get defstate.\n");
-	        rc = -1;
-	        goto pinctrl_error;
-	    }
+		rc = gpio_direction_input(sensor->board_info->gpios[FSIN].gpio);
+		if (rc < 0) {
+		    cam_err("%s failed to config gpio(%d) input.\n",__func__, sensor->board_info->gpios[FSIN].gpio);
+		}
 
-	    pinctrl_idle = pinctrl_lookup_state(p, "idle");
-	    if (IS_ERR_OR_NULL(pinctrl_idle)) {
-	        pr_err("could not get idle defstate.\n");
-	        rc = -1;
-	        goto pinctrl_error;
-	    }
-	    /*PULL UP*/
-	    rc = pinctrl_select_state(p, pinctrl_def);
-	    if (rc) {
-	        cam_err("could not set pins to default state.\n");
-	        rc = -1;
-	        goto pinctrl_error;
-	    }
-	    udelay(10);
-	    cam_info("%s gpio[%d].", __func__, sensor->board_info->gpios[FSIN].gpio);
-	    rc = gpio_direction_input(sensor->board_info->gpios[FSIN].gpio);
-	    if (rc < 0) {
-	        cam_err("%s failed to config gpio(%d) input.\n",__func__, sensor->board_info->gpios[FSIN].gpio);
-	        rc = -1;
-	        goto pinctrl_error;
-	    }
+		module_id = gpio_get_value_cansleep(sensor->board_info->gpios[FSIN].gpio);
+		if (module_id < 0) {
+		    cam_err("%s failed to get gpio(%d) value(%d).\n",__func__, sensor->board_info->gpios[FSIN].gpio, module_id);
+		}
 
-	    module_id_1 = gpio_get_value(sensor->board_info->gpios[FSIN].gpio);
+		cam_info("%s module_id = %d", __func__,module_id);
 
-	    /*PULL DOWN*/
-	    rc = pinctrl_select_state(p, pinctrl_idle);
-	    if (rc) {
-	    cam_err("could not set pins to idle state.\n");
-	    rc = -1;
-	    goto pinctrl_error;
-	    }
-	    udelay(10);
-	    cam_info("%s gpio[%d].", __func__, sensor->board_info->gpios[FSIN].gpio);
-	    rc = gpio_direction_input(sensor->board_info->gpios[FSIN].gpio);
-	    if (rc < 0) {
-	    cam_err("%s failed to config gpio(%d) input.\n",__func__, sensor->board_info->gpios[FSIN].gpio);
-	    rc = -1;
-	    goto pinctrl_error;
-	    }
-	    module_id_0 = gpio_get_value(sensor->board_info->gpios[FSIN].gpio);
+		gpio_free(sensor->board_info->gpios[FSIN].gpio);
 
-	    cam_info("%s module_id_0 %d module_id_1 %d .\n",__func__, module_id_0, module_id_1);
-	    if((module_id_0 == 0) && (module_id_1 == 0)){//ofilm module
-	        strncpy(cdata->cfg.name, sensor_name[0], strlen(sensor_name[0])+1);
-	        cdata->data = sensor->board_info->sensor_index;
-	        rc = 0;
-	    }
-	    else if((module_id_0 == 1) && (module_id_1 == 1)){//v1&v2 foxconn module & final sunny module
-	        strncpy(cdata->cfg.name, sensor_name[1], strlen(sensor_name[1])+1);
-	        cdata->data = sensor->board_info->sensor_index;
-	        rc = 0;
-	    }else{//23060227 NO SUCH MODULE
-	        strncpy(cdata->cfg.name, sensor->board_info->name, strlen(sensor->board_info->name)+1);
-	        cdata->data = sensor->board_info->sensor_index;
-	        cam_err("%s failed to get the module id value.\n",__func__);
-	        rc = 0;
-	    }
+		if (0 == module_id) {//ofilm
+		    strncpy(cdata->cfg.name, sensor_name[0], strlen(sensor_name[0])+1);
+		    cdata->data = sensor->board_info->sensor_index;
+		} else if(1 == module_id){//sunny
+		    strncpy(cdata->cfg.name, sensor_name[1], strlen(sensor_name[1])+1);
+		    cdata->data = sensor->board_info->sensor_index;
+		}else{
+            cam_err("%s module unknown", __func__,module_id);
+		}
+	} else {
+	    strncpy(cdata->cfg.name, sensor->board_info->name, strlen(sensor->board_info->name)+1);
+	    cdata->data = sensor->board_info->sensor_index;
+	}
 
-	    gpio_free(sensor->board_info->gpios[FSIN].gpio);
-	    goto matchID_exit;
-	    } else {
-	        strncpy(cdata->cfg.name, sensor->board_info->name, strlen(sensor->board_info->name)+1);
-	        cdata->data = sensor->board_info->sensor_index;
-	        rc = 0;
-	        goto matchID_exit;
-	    }
-
-pinctrl_error:
-	    gpio_free(sensor->board_info->gpios[FSIN].gpio);
-matchID_exit:
-	    if (cdata->data != SENSOR_INDEX_INVALID) {
-	        hwsensor_writefile(sensor->board_info->sensor_index, cdata->cfg.name);
-	        cam_info("%s, cdata->cfg.name = %s", __func__,cdata->cfg.name );
-	    }
+    if (cdata->data != SENSOR_INDEX_INVALID) {
+        cam_info("%s, cdata->cfg.name = %s", __func__,cdata->cfg.name );
+    }
 
     return rc;
 }

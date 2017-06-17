@@ -1,4 +1,4 @@
-comment "Huawei Sensor"
+comment "Huawei Sensor hi3650"
 
 source "drivers/media/huawei/camera/sensor/vcm/Kconfig"
 source "drivers/media/huawei/camera/sensor/flash/Kconfig"

@@ -15,6 +15,8 @@
 
 static hwsensor_vtbl_t s_ov8856_vtbl;
 static bool power_on_status = false;//false: power off, true:power on
+/*lint -e826 -e31 -e485 -e785 -e731 -e846 -e514 -e866 -e30 -e84 -e838 -e64 -e528 -e753 -e749 -e715 -esym(826, 31, 485, 785, 731, 846, 514, 866, 30, 84, 838, 64, 528, 753, 749, 715*)*/
+/*lint -save -e826 -e31 -e485 -e785 -e731 -e846 -e514 -e866 -e30 -e84 -e838 -e64 -e528 -e753 -e749 -e715 -specific(-e826 -e31 -e485 -e785 -e731 -e846 -e514 -e866 -e30 -e84 -e838 -e64 -e528 -e753 -e749 -e715)*/
 
 enum rear_sensor_dvdd_type_t{
 	DVDD105V=0,//1.05V
@@ -412,7 +414,6 @@ static int ov8856_match_id(
 
     cdata->data = sensor->board_info->sensor_index;
 
-    hwsensor_writefile(sensor->board_info->sensor_index, sensor->board_info->name);
     return 0;
 }
 
@@ -522,9 +523,13 @@ static void __exit ov8856_exit_module(void)
     hwsensor_unregister(&s_ov8856.intf);
     platform_driver_unregister(&s_ov8856_driver);
 }
-
+/*lint -restore*/
+/*lint -e826 -e31 -e485 -e785 -e731 -e846 -e514 -e866 -e30 -e84 -e838 -e64 -e528 -e753 -e749 +esym(826, 31, 485, 785, 731, 846, 514, 866, 30, 84, 838, 64, 528, 753, 749, 715*)*/
+/*lint -e528 -esym(528,*)*/
 module_init(ov8856_init_module);
 module_exit(ov8856_exit_module);
+/*lint -e528 +esym(528,*)*/
+/*lint -e753 -esym(753,*)*/
 MODULE_DESCRIPTION("ov8856");
 MODULE_LICENSE("GPL v2");
-
+/*lint -e753 +esym(753,*)*/

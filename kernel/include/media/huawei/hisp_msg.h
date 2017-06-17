@@ -409,6 +409,7 @@ typedef struct _msg_req_map_buffer_t
     unsigned int buffer_size;
     unsigned int t2_enable;
     unsigned int dis_enable;
+    unsigned int vendor_capability_extend;//bit[0]: 1-pdaf support,0- pdaf not support;bit[1]:1-rear dual camera support,0-rear dual camera not support; others: reserved
 } msg_req_map_buffer_t;
 
 typedef struct _msg_ack_map_buffer_t
@@ -674,6 +675,7 @@ typedef enum
     SUBCMD_SET_PDAF_RESULT,
     SUBCMD_SET_SELF_LEARN_DATA,
     SUBCMD_SET_SFR_TEST_DATA,
+    SUBCMD_SET_AF_OTPSTART_MODE,
 } extendset_info_e;
 
 typedef enum

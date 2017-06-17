@@ -4,6 +4,7 @@
 #define __SIMULATED_FIRMWARE_INTERFACE__
 
 #define MAX_ACQUIRE_CAMERA_NUM       3
+#define MAX_ACQUIRE_CAMERA_NUM_V110  2
 #define PORTING_L
 #ifdef HISP_V150
 #include <media/huawei/hisp150_msg.h>

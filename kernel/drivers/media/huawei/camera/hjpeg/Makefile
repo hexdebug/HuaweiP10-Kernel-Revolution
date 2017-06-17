@@ -8,3 +8,7 @@ ifeq ($(CONFIG_HISI_CAMERA_HISTAR_ISPV150), y)
 obj-y += hjpeg150/
 endif
 
+ifeq ($(CONFIG_HISI_CAMERA_HISTAR_ISPV160), y)
+obj-y += hjpeg160/
+endif
+

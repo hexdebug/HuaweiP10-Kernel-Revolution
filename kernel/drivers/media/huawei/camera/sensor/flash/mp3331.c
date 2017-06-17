@@ -45,11 +45,17 @@
 #define MP3331_TORCH_DEFAULT_CUR_LEV         5    //158mA
 #define MP3331_FLASH_MAX_CUR_LEV                 47  //1490mA
 #define MP3331_TORCH_MAX_CUR_LEV                 12   //380mA
+#define MP3331_TORCH_MAX_CUR                           380
 #define MP3331_CUR_STEP_LEV                            317  //31.7mA * 10
 
 #define FLASH_CHIP_ID_MASK       0xF8
 #define FLASH_LED_LEVEL_INVALID  0xff
 
+#define MP3331_OVER_VOLTAGE_PROTECT              0x40
+#define MP3331_VOUT_SHORT                        0x20
+#define MP3331_LED_SHORT                         0x10
+#define MP3331_OVER_TEMP_PROTECT                 0x08
+#define MP3331_LED_OPEN                          0x01
 
 /* Internal data struct define */
 struct hw_mp3331_private_data_t {
@@ -64,8 +70,13 @@ static struct hw_mp3331_private_data_t hw_mp3331_pdata;
 static struct hw_flash_ctrl_t hw_mp3331_ctrl;
 static struct i2c_driver hw_mp3331_i2c_driver;
 
+extern struct dsm_client *client_flash;
+
 DEFINE_HISI_FLASH_MUTEX(mp3331);
 
+#ifdef CAMERA_FLASH_FACTORY_TEST
+extern int register_camerafs_attr(struct device_attribute *attr);
+#endif
 
 /****************************************************************************
 * FunctionName: msm_flash_clear_err_and_unlock;
@@ -74,11 +85,13 @@ DEFINE_HISI_FLASH_MUTEX(mp3331);
 ***************************************************************************/
 static int hw_mp3331_clear_err_and_unlock(struct hw_flash_ctrl_t *flash_ctrl)
 {
-	cam_debug("%s ernter.\n", __func__);
 	struct hw_flash_i2c_client *i2c_client;
 	struct hw_flash_i2c_fn_t *i2c_func;
 	unsigned char fault_h = 0;
 	unsigned char fault_l = 0;
+	int rc = 0;
+
+	cam_debug("%s ernter.\n", __func__);
 
 	if ((NULL == flash_ctrl) || (NULL == flash_ctrl->flash_i2c_client)) {
 		cam_err("%s flash_ctrl is NULL.", __func__);
@@ -89,7 +102,39 @@ static int hw_mp3331_clear_err_and_unlock(struct hw_flash_ctrl_t *flash_ctrl)
 	i2c_func = flash_ctrl->flash_i2c_client->i2c_func_tbl;
 
 	loge_if_ret(i2c_func->i2c_read(i2c_client, REG_FLASH_FAULT_H, &fault_h) < 0);
-	loge_if_ret(i2c_func->i2c_read(i2c_client, REG_FLASH_FAULT_L, &fault_l) < 0);
+	rc = i2c_func->i2c_read(i2c_client, REG_FLASH_FAULT_L, &fault_l);
+	if(rc < 0) {
+	    if(!dsm_client_ocuppy(client_flash)) {
+                  dsm_client_record(client_flash, "flash i2c transfer fail\n");
+                  dsm_client_notify(client_flash, DSM_FLASH_I2C_ERROR_NO);
+                  cam_err("[I/DSM] %s flashlight i2c fail", __func__);
+	    }
+	    return -1;
+	}
+
+	if (fault_h & MP3331_OVER_TEMP_PROTECT) {
+           if(!dsm_client_ocuppy(client_flash)) {
+                dsm_client_record(client_flash, "flash temperature is too hot! FlagReg_H[0x%x]\n", fault_h);
+                dsm_client_notify(client_flash, DSM_FLASH_HOT_DIE_ERROR_NO);
+                cam_warn("[I/DSM] %s flash temperature is too hot! FlagReg_H[0x%x]", __func__, fault_h);
+           }
+	}
+
+	if (fault_h & (MP3331_OVER_VOLTAGE_PROTECT | MP3331_VOUT_SHORT | MP3331_LED_SHORT)) {
+           if(!dsm_client_ocuppy(client_flash)) {
+                dsm_client_record(client_flash, "flash OVP, VOUT or LED short! FlagReg_H[0x%x]\n", fault_h);
+                dsm_client_notify(client_flash, DSM_FLASH_OPEN_SHOTR_ERROR_NO);
+                cam_warn("[I/DSM] flash OVP, VOUT or LED short! FlagReg_H[0x%x]", __func__, fault_h);
+           }
+	}
+
+	if (fault_l & MP3331_LED_OPEN) {
+           if(!dsm_client_ocuppy(client_flash)) {
+                dsm_client_record(client_flash, "flash LED Open! FlagReg_L[0x%x]\n", fault_l);
+                dsm_client_notify(client_flash, DSM_FLASH_OPEN_SHOTR_ERROR_NO);
+                cam_warn("[I/DSM] flash LED Opent! FlagReg_L[0x%x]", __func__, fault_l);
+           }
+	}
 
 	cam_info("%s fault_h=0x%x, fault_l=0x%x \n", __func__, fault_h, fault_l);
 
@@ -224,7 +269,7 @@ static int hw_mp3331_torch_mode(struct hw_flash_ctrl_t *flash_ctrl, int data)
 	else
 	{
 		if( data*10 > MP3331_TORCH_MAX_CUR_LEV * MP3331_CUR_STEP_LEV){
-		      current_level = MP3331_TORCH_DEFAULT_CUR_LEV;
+		      current_level = MP3331_TORCH_MAX_CUR_LEV;
 		}
 		else{
 		      current_level = hw_mp3331_find_match_current(data);
@@ -311,6 +356,203 @@ static int hw_mp3331_off(struct hw_flash_ctrl_t *flash_ctrl)
 	return 0;
 }
 
+static int hw_mp3331_get_dt_data(struct hw_flash_ctrl_t *flash_ctrl)
+{
+	struct hw_mp3331_private_data_t *pdata;
+	struct device_node *of_node;
+	int rc = -1;
+
+	cam_debug("%s enter.\n", __func__);
+	if ((NULL == flash_ctrl) || (NULL == flash_ctrl->pdata)) {
+		cam_err("%s flash_ctrl is NULL.", __func__);
+		return rc;
+	}
+
+	pdata = (struct hw_mp3331_private_data_t *)flash_ctrl->pdata;
+	of_node = flash_ctrl->dev->of_node;
+
+	rc = of_property_read_u32(of_node, "huawei,flash_current",
+		&pdata->flash_current);
+	cam_info("%s hisi,flash_current %d, rc %d\n", __func__,
+		pdata->flash_current, rc);
+	if (rc < 0) {
+		cam_info("%s failed %d\n", __func__, __LINE__);
+		pdata->flash_current = FLASH_LED_LEVEL_INVALID;
+	}
+
+	rc = of_property_read_u32(of_node, "huawei,torch_current",
+		&pdata->torch_current);
+	cam_info("%s hisi,torch_current %d, rc %d\n", __func__,
+		pdata->torch_current, rc);
+	if (rc < 0) {
+		cam_err("%s failed %d\n", __func__, __LINE__);
+		pdata->torch_current = FLASH_LED_LEVEL_INVALID;
+	}
+
+	rc = of_property_read_u32(of_node, "huawei,flash-chipid",
+		&pdata->chipid);
+	cam_info("%s hisi,chipid 0x%x, rc %d\n", __func__,
+		pdata->chipid, rc);
+	if (rc < 0) {
+		cam_err("%s failed %d\n", __func__, __LINE__);
+		return rc;
+	}
+	return rc;
+}
+
+#ifdef CAMERA_FLASH_FACTORY_TEST
+static ssize_t hw_mp3331_lightness_show(struct device *dev,
+	struct device_attribute *attr,char *buf)
+{
+        int rc=0;
+
+        snprintf(buf, MAX_ATTRIBUTE_BUFFER_SIZE, "mode=%d, data=%d.\n",
+		hw_mp3331_ctrl.state.mode, hw_mp3331_ctrl.state.mode);
+        rc = strlen(buf)+1;
+        return rc;
+}
+
+static int hw_mp3331_param_check(char *buf, unsigned long *param,
+	int num_of_par)
+{
+	char *token;
+	int base, cnt;
+
+	token = strsep(&buf, " ");
+
+	for (cnt = 0; cnt < num_of_par; cnt++)
+	{
+		if (token != NULL)
+		{
+			if ((token[1] == 'x') || (token[1] == 'X')) {
+				base = 16;
+			} else {
+				base = 10;
+			}
+
+			if (strict_strtoul(token, base, &param[cnt]) != 0) {
+				return -EINVAL;
+			}
+
+			token = strsep(&buf, " ");
+		}
+		else
+		{
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
+static ssize_t hw_mp3331_lightness_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct hw_flash_cfg_data cdata = {0};
+	unsigned long param[2]={0};
+	int rc=0;
+
+    cam_info("%s enter,buf=%s.", __func__,buf);
+	rc = hw_mp3331_param_check((char *)buf, param, 2);
+	if (rc < 0) {
+		cam_err("%s failed to check param.", __func__);
+		return rc;
+	}
+
+	int flash_id = (int)param[0];
+	cdata.mode = (int)param[1];
+	cam_info("%s flash_id=%d,cdata.mode=%d.", __func__, flash_id, cdata.mode);
+	if(1 != flash_id){//bit[0]- rear first flash light.bit[1]- rear sencond flash light.bit[2]- front flash light; dallas product using only rear first flash light
+		cam_err("%s wrong flash_id=%d.", __func__,flash_id);
+		return -1;
+	}
+
+	if (cdata.mode == STANDBY_MODE) {
+		rc = hw_mp3331_off(&hw_mp3331_ctrl);
+		if (rc < 0) {
+			cam_err("%s mp3331 flash off error.", __func__);
+			return rc;
+		}
+	} else if(cdata.mode == TORCH_MODE){
+		cdata.data = MP3331_TORCH_MAX_CUR;//hardware test requiring the max torch mode current
+		cam_info("%s mode=%d, max_current=%d.", __func__, cdata.mode, cdata.data);
+
+		rc = hw_mp3331_on(&hw_mp3331_ctrl, &cdata);
+		if (rc < 0) {
+			cam_err("%s mp3331 flash on error.", __func__);
+			return rc;
+		}
+	} else {
+		cam_err("%s scharger wrong mode=%d.", __func__,cdata.mode);
+		return -1;
+	}
+
+	return count;
+}
+#endif
+
+static void hw_mp3331_torch_brightness_set(struct led_classdev *cdev,
+	enum led_brightness brightness)
+{
+	struct hw_flash_cfg_data cdata;
+	int rc;
+	unsigned int led_bright = brightness;
+
+	if (STANDBY_MODE == led_bright) {
+		rc = hw_mp3331_off(&hw_mp3331_ctrl);
+		if (rc < 0) {
+			cam_err("%s pmu_led off error.", __func__);
+			return;
+		}
+	} else {
+		cdata.mode = TORCH_MODE;
+		cdata.data = brightness-1;
+		rc = hw_mp3331_on(&hw_mp3331_ctrl, &cdata);
+		if (rc < 0) {
+			cam_err("%s pmu_led on error.", __func__);
+			return;
+		}
+	}
+}
+
+#ifdef CAMERA_FLASH_FACTORY_TEST
+static struct device_attribute hw_mp3331_lightness =
+    __ATTR(flash_lightness, 0664, hw_mp3331_lightness_show, hw_mp3331_lightness_store);
+#endif
+
+static int hw_mp3331_register_attribute(struct hw_flash_ctrl_t *flash_ctrl, struct device *dev)
+{
+	int rc = 0;
+
+	if ((NULL == flash_ctrl) || (NULL == dev)) {
+		cam_err("%s flash_ctrl or dev is NULL.", __func__);
+		return -1;
+	}
+
+	flash_ctrl->cdev_torch.name = "torch";
+	flash_ctrl->cdev_torch.max_brightness
+		= ((struct hw_mp3331_private_data_t *)(flash_ctrl->pdata))->torch_led_num;
+	flash_ctrl->cdev_torch.brightness_set = hw_mp3331_torch_brightness_set;
+	rc = led_classdev_register((struct device *)dev, &flash_ctrl->cdev_torch);
+	if (rc < 0) {
+		cam_err("%s failed to register torch classdev.", __func__);
+		goto err_out;
+	}
+#ifdef CAMERA_FLASH_FACTORY_TEST
+	rc = device_create_file(dev, &hw_mp3331_lightness);
+	if (rc < 0) {
+		cam_err("%s failed to creat lightness attribute.", __func__);
+		goto err_create_lightness_file;
+	}
+#endif
+	return 0;
+#ifdef CAMERA_FLASH_FACTORY_TEST
+err_create_lightness_file:
+	led_classdev_unregister(&flash_ctrl->cdev_torch);
+#endif
+err_out:
+	return rc;
+}
+
 static int hw_mp3331_match(struct hw_flash_ctrl_t *flash_ctrl)
 {
 	struct hw_flash_i2c_client *i2c_client;
@@ -363,189 +605,10 @@ static int hw_mp3331_match(struct hw_flash_ctrl_t *flash_ctrl)
 	loge_if_ret(i2c_func->i2c_write(i2c_client, REG_LED_FLASH_CUR_SET, I_FL) < 0);
 	loge_if_ret(i2c_func->i2c_write(i2c_client, REG_TXMASK_CUR_SET, I_TX) < 0);
 	loge_if_ret(i2c_func->i2c_write(i2c_client, REG_LED_TORCH_CUR_SET, I_TOR) < 0);
-
+#ifdef CAMERA_FLASH_FACTORY_TEST
+	register_camerafs_attr(&hw_mp3331_lightness);
+#endif
 	return 0;
-}
-
-static int hw_mp3331_get_dt_data(struct hw_flash_ctrl_t *flash_ctrl)
-{
-	struct hw_mp3331_private_data_t *pdata;
-	struct device_node *of_node;
-	int rc = -1;
-
-	cam_debug("%s enter.\n", __func__);
-	if ((NULL == flash_ctrl) || (NULL == flash_ctrl->pdata)) {
-		cam_err("%s flash_ctrl is NULL.", __func__);
-		return rc;
-	}
-
-	pdata = (struct hw_mp3331_private_data_t *)flash_ctrl->pdata;
-	of_node = flash_ctrl->dev->of_node;
-
-	rc = of_property_read_u32(of_node, "huawei,flash_current",
-		&pdata->flash_current);
-	cam_info("%s hisi,flash_current %d, rc %d\n", __func__,
-		pdata->flash_current, rc);
-	if (rc < 0) {
-		cam_info("%s failed %d\n", __func__, __LINE__);
-		pdata->flash_current = FLASH_LED_LEVEL_INVALID;
-	}
-
-	rc = of_property_read_u32(of_node, "huawei,torch_current",
-		&pdata->torch_current);
-	cam_info("%s hisi,torch_current %d, rc %d\n", __func__,
-		pdata->torch_current, rc);
-	if (rc < 0) {
-		cam_err("%s failed %d\n", __func__, __LINE__);
-		pdata->torch_current = FLASH_LED_LEVEL_INVALID;
-	}
-
-	rc = of_property_read_u32(of_node, "huawei,flash-chipid",
-		&pdata->chipid);
-	cam_info("%s hisi,chipid 0x%x, rc %d\n", __func__,
-		pdata->chipid, rc);
-	if (rc < 0) {
-		cam_err("%s failed %d\n", __func__, __LINE__);
-		return rc;
-	}
-	return rc;
-}
-
-static ssize_t hw_mp3331_lightness_show(struct device *dev,
-	struct device_attribute *attr,char *buf)
-{
-        int rc=0;
-
-        snprintf(buf, MAX_ATTRIBUTE_BUFFER_SIZE, "mode=%d, data=%d.\n",
-		hw_mp3331_ctrl.state.mode, hw_mp3331_ctrl.state.mode);
-        rc = strlen(buf)+1;
-        return rc;
-}
-
-static int hw_mp3331_param_check(char *buf, unsigned long *param,
-	int num_of_par)
-{
-	char *token;
-	int base, cnt;
-
-	token = strsep(&buf, " ");
-
-	for (cnt = 0; cnt < num_of_par; cnt++)
-	{
-		if (token != NULL)
-		{
-			if ((token[1] == 'x') || (token[1] == 'X')) {
-				base = 16;
-			} else {
-				base = 10;
-			}
-
-			if (strict_strtoul(token, base, &param[cnt]) != 0) {
-				return -EINVAL;
-			}
-
-			token = strsep(&buf, " ");
-		}
-		else
-		{
-			return -EINVAL;
-		}
-	}
-	return 0;
-}
-
-static ssize_t hw_mp3331_lightness_store(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
-{
-	struct hw_flash_cfg_data cdata = {0};
-	unsigned long param[2]={0};
-	int rc=0;
-
-	rc = hw_mp3331_param_check((char *)buf, param, 2);
-	if (rc < 0) {
-		cam_err("%s failed to check param.", __func__);
-		return rc;
-	}
-
-	cdata.mode = (int)param[0];
-	cdata.data = (int)param[1];
-
-	if (cdata.mode == STANDBY_MODE) {
-		rc = hw_mp3331_off(&hw_mp3331_ctrl);
-		if (rc < 0) {
-			cam_err("%s mp3331 flash off error.", __func__);
-			return rc;
-		}
-	} else {
-		rc = hw_mp3331_on(&hw_mp3331_ctrl, &cdata);
-		if (rc < 0) {
-			cam_err("%s mp3331 flash on error.", __func__);
-			return rc;
-		}
-	}
-
-	return count;
-}
-
-
-static void hw_mp3331_torch_brightness_set(struct led_classdev *cdev,
-	enum led_brightness brightness)
-{
-	struct hw_flash_cfg_data cdata;
-	int rc;
-	unsigned int led_bright = brightness;
-
-	if (STANDBY_MODE == led_bright) {
-		rc = hw_mp3331_off(&hw_mp3331_ctrl);
-		if (rc < 0) {
-			cam_err("%s pmu_led off error.", __func__);
-			return;
-		}
-	} else {
-		cdata.mode = TORCH_MODE;
-		cdata.data = brightness-1;
-		rc = hw_mp3331_on(&hw_mp3331_ctrl, &cdata);
-		if (rc < 0) {
-			cam_err("%s pmu_led on error.", __func__);
-			return;
-		}
-	}
-}
-
-static struct device_attribute hw_mp3331_lightness =
-    __ATTR(lightness, 0664, hw_mp3331_lightness_show, hw_mp3331_lightness_store);
-
-static int hw_mp3331_register_attribute(struct hw_flash_ctrl_t *flash_ctrl, struct device *dev)
-{
-	int rc = 0;
-
-	if ((NULL == flash_ctrl) || (NULL == dev)) {
-		cam_err("%s flash_ctrl or dev is NULL.", __func__);
-		return -1;
-	}
-
-	flash_ctrl->cdev_torch.name = "torch";
-	flash_ctrl->cdev_torch.max_brightness
-		= ((struct hw_mp3331_private_data_t *)(flash_ctrl->pdata))->torch_led_num;
-	flash_ctrl->cdev_torch.brightness_set = hw_mp3331_torch_brightness_set;
-	rc = led_classdev_register((struct device *)dev, &flash_ctrl->cdev_torch);
-	if (rc < 0) {
-		cam_err("%s failed to register torch classdev.", __func__);
-		goto err_out;
-	}
-
-	rc = device_create_file(dev, &hw_mp3331_lightness);
-	if (rc < 0) {
-		cam_err("%s failed to creat lightness attribute.", __func__);
-		goto err_create_lightness_file;
-	}
-
-	return 0;
-
-err_create_lightness_file:
-	led_classdev_unregister(&flash_ctrl->cdev_torch);
-err_out:
-	return rc;
 }
 
 static int hw_mp3331_remove(struct i2c_client *client)

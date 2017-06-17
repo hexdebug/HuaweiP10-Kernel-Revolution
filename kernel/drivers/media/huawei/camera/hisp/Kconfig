@@ -12,3 +12,7 @@ endif
 if HISI_CAMERA_HISTAR_ISPV150
 source "drivers/media/huawei/camera/hisp/hisp150/Kconfig"
 endif
+
+if HISI_CAMERA_HISTAR_ISPV160
+source "drivers/media/huawei/camera/hisp/hisp160/Kconfig"
+endif

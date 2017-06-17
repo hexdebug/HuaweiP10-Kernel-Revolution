@@ -35,7 +35,7 @@ static struct sensor_power_setting imx219_vic_power_setting[] = {
     {
         .seq_type = SENSOR_AVDD,
         .data = (void*)"front-sensor-avdd",
-        .config_val = LDO_VOLTAGE_V2P8V,
+        .config_val = LDO_VOLTAGE_V2P85V,
         .sensor_index = SENSOR_INDEX_INVALID,
         .delay = 0,
     },
@@ -43,7 +43,7 @@ static struct sensor_power_setting imx219_vic_power_setting[] = {
     //MCAM1 DVDD 1.2V
     {
         .seq_type = SENSOR_DVDD,
-        .config_val = LDO_VOLTAGE_V1P25V,
+        .config_val = LDO_VOLTAGE_V1P1V,
         .sensor_index = SENSOR_INDEX_INVALID,
         .delay = 0,
     },

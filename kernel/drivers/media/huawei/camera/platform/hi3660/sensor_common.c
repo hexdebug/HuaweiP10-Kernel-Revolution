@@ -308,6 +308,21 @@ int hw_sensor_pmic_config(hwsensor_board_info_t *sensor_info,
     return rc;
 }
 
+int hw_sensor_pmic_check_exception(void)
+{
+	int rc = 0;
+	/* check pmic exception state */
+	if (ncp6925_ctrl.func_tbl->pmic_check_exception) {
+		rc = ncp6925_ctrl.func_tbl->pmic_check_exception(&ncp6925_ctrl);
+		if(rc != 0) {
+			cam_err("%s ncp6925_ctrl.func_tbl->pmic_check_exception is exception", __func__);
+			return -1;
+		}
+	}
+	return rc;
+}
+
+
 int hw_sensor_power_up(sensor_t *s_ctrl)
 {
 	if (hisi_is_clt_flag()) {
@@ -421,7 +436,6 @@ int hw_sensor_power_up(sensor_t *s_ctrl)
 			cam_debug("%s, seq_type:%u SENSOR_I2C", __func__, power_setting->seq_type);
 			hw_sensor_i2c_config(s_ctrl, power_setting, POWER_ON);
 			break;
-
 		case SENSOR_LDO_EN:
 			cam_info("%s, seq_type:%u SENSOR_LDO_EN", __func__, power_setting->seq_type);
 			rc = hw_sensor_gpio_config(LDO_EN, s_ctrl->board_info,
@@ -509,6 +523,9 @@ int hw_sensor_power_up(sensor_t *s_ctrl)
 		}
 	}
 
+	/* check pmic exception state*/
+	hw_sensor_pmic_check_exception();
+
 	/* atomic_set(&s_powered, 1); */
 
 	if (s_ctrl->p_atpowercnt){
@@ -524,17 +541,17 @@ int hw_sensor_power_up(sensor_t *s_ctrl)
 
 int hw_sensor_power_down(sensor_t *s_ctrl)
 {
+	struct sensor_power_setting_array *power_setting_array;
+	struct sensor_power_setting *power_setting;
+	int index, rc = 0;
+	struct hisi_pmic_ctrl_t *pmic_ctrl = NULL;
+
 	if (hisi_is_clt_flag()) {
 		cam_info("%s just return for CLT camera.", __func__);
 		return 0;
 	}
 
-	struct sensor_power_setting_array *power_setting_array
-		= &s_ctrl->power_setting_array;
-	struct sensor_power_setting *power_setting = NULL;
-	int index = 0, rc = 0;
-	struct hisi_pmic_ctrl_t *pmic_ctrl = NULL;
-
+	power_setting_array = &s_ctrl->power_setting_array;
 
 	cam_debug("%s enter.", __func__);
 
@@ -790,14 +807,17 @@ int hw_sensor_i2c_write(sensor_t *s_ctrl, void *data)
 
 int hw_sensor_i2c_read_seq(sensor_t *s_ctrl, void *data)
 {
+	struct sensor_cfg_data *cdata;
+	struct sensor_i2c_setting setting;
+	int size;
+	long rc = 0;
+
     if (NULL == data || NULL == s_ctrl) {
 		cam_err("%s data or s_ctrl is null.\n", __func__);
 		return -EFAULT;
     }
-	struct sensor_cfg_data *cdata = (struct sensor_cfg_data *)data;
-	struct sensor_i2c_setting setting;
-	int size = sizeof(struct sensor_i2c_reg)*cdata->cfg.setting.size;
-	long rc = 0;
+	cdata = (struct sensor_cfg_data *)data;
+	size = sizeof(struct sensor_i2c_reg)*cdata->cfg.setting.size;
 
 	cam_debug("%s: enter.\n", __func__);
 
@@ -851,14 +871,17 @@ fail:
 
 int hw_sensor_i2c_write_seq( sensor_t *s_ctrl, void *data)
 {
+	struct sensor_cfg_data *cdata;
+	struct sensor_i2c_setting setting;
+	int data_length;
+	long rc = 0;
+
 	if (NULL == data || NULL == s_ctrl) {
 		cam_err("%s data or s_ctrl is null.\n", __func__);
 		return -EFAULT;
 	}
-	struct sensor_cfg_data *cdata = (struct sensor_cfg_data *)data;
-	struct sensor_i2c_setting setting;
-	int data_length = sizeof(struct sensor_i2c_reg)*cdata->cfg.setting.size;
-	long rc = 0;
+	cdata = (struct sensor_cfg_data *)data;
+	data_length = sizeof(struct sensor_i2c_reg)*cdata->cfg.setting.size;
 
 	cam_info("%s: enter setting=%pK size=%d.\n", __func__,
 			cdata->cfg.setting.setting,
@@ -978,7 +1001,7 @@ int hw_sensor_get_dt_data(struct platform_device *pdev,
 	u32 i, index = 0;
 	char *gpio_tag = NULL;
 	const char *gpio_ctrl_types[IO_MAX] =
-		{"reset", "fsin", "pwdn", "vcm_pwdn", "suspend", "reset2", "ldo_en", "ois", "ois2", "dvdd0-en", "dvdd1-en", "iovdd-en", "mispdcdc-en"};
+		{"reset", "fsin", "pwdn", "vcm_pwdn", "suspend", "suspend2", "reset2", "ldo_en", "ois", "ois2", "dvdd0-en", "dvdd1-en", "iovdd-en", "mispdcdc-en"};
 
 	cam_debug("enter %s", __func__);
 	sensor_info = kzalloc(sizeof(hwsensor_board_info_t),
@@ -1050,7 +1073,7 @@ int hw_sensor_get_dt_data(struct platform_device *pdev,
         sizeof(u32));
     if (count > 0) {
         ret = of_property_read_u32_array(of_node, "huawei,csi_index",
-            &sensor_info->csi_id, count);
+            (u32 *)&sensor_info->csi_id, count);
     } else {
         sensor_info->csi_id[0] = sensor_info->sensor_index;
         sensor_info->csi_id[1] = -1;
@@ -1062,7 +1085,7 @@ int hw_sensor_get_dt_data(struct platform_device *pdev,
         sizeof(u32));
     if (count > 0) {
         ret = of_property_read_u32_array(of_node, "huawei,i2c_index",
-           &sensor_info->i2c_id, count);
+           (u32 *)&sensor_info->i2c_id, count);
     } else {
         sensor_info->i2c_id[0] = sensor_info->sensor_index;
         sensor_info->i2c_id[1] = -1;
