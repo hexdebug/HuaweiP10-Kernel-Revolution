@@ -25,7 +25,6 @@
 modules.builtin
 *.elf
 *.bin
-*.gz
 *.bz2
 *.lzma
 *.xz
@@ -64,7 +63,8 @@ kernel/include/linux/version.h
 kernel/include/generated
 kernel/arch/*/include/generated
 kernel/arch/arm64/configs/revolution_defconfig
-
+out/*
+compiled/*
 # stgit generated dirs
 patches-*
 
@@ -92,7 +92,6 @@ kernel/bootimg/boot.img
 kernel/bootimg/boot_repack.img
 kernel/bootimg/kernel.gz
 *.dtb
-out
 boot.img
 compiled/*.img
 compiled/*.zip
