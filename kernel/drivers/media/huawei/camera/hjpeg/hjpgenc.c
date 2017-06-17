@@ -26,10 +26,104 @@ typedef struct _tag_hjpeg
     struct mutex                                lock;
     hjpeg_intf_t*                               intf;
 
+    unsigned int                                jpeg_power_ref;
 } hjpeg_t;
 
 #define SD2Hjpeg(sd) container_of(sd, hjpeg_t, subdev)
 #define I2Hjpeg(jpeg_intf) container_of(jpeg_intf, hjpeg_t, intf)
+
+static bool is_hjpeg_encode_power_on(hjpeg_t* hjpeg)
+{
+    bool rc = false;
+
+    if(hjpeg == NULL){
+        cam_err("%s hjpeg == NULL.%d", __func__, __LINE__);
+        return rc;
+    }
+
+    if(0 == hjpeg->jpeg_power_ref){
+        cam_err("%s hjpeg do not power on.%d", __func__, __LINE__);
+        return rc;
+    }
+
+    return true;
+}
+
+static long hjpeg_encode_process(hjpeg_t* hjpeg, void *arg)
+{
+    long rc = -EINVAL;
+
+    if(!is_hjpeg_encode_power_on(hjpeg)){
+        return rc;
+    }
+
+    return hjpeg->intf->vtbl->encode_process(hjpeg->intf, arg);
+}
+
+static long hjpeg_encode_power_on(hjpeg_t* hjpeg)
+{
+    long rc = 0;
+
+    if(hjpeg == NULL){
+        cam_err("%s hjpeg == NULL.%d", __func__, __LINE__);
+        return -EINVAL;
+    }
+
+    if(0 == hjpeg->jpeg_power_ref){
+        rc = hjpeg->intf->vtbl->power_on(hjpeg->intf);
+        if(rc){
+            cam_err("%s hjpeg power on fail.%d", __func__, __LINE__);
+            return -EINVAL;
+        }
+    }
+
+    hjpeg->jpeg_power_ref++;
+
+    return rc;
+}
+
+static long hjpeg_encode_power_down(hjpeg_t* hjpeg)
+{
+    long rc = 0;
+
+    if(!is_hjpeg_encode_power_on(hjpeg)){
+        return -EINVAL;
+    }
+
+    if(1 == hjpeg->jpeg_power_ref){
+        rc = hjpeg->intf->vtbl->power_down(hjpeg->intf);
+        if(rc){
+            cam_err("%s hjpeg power down fail.%d", __func__, __LINE__);
+            return rc;
+        }
+    }
+
+    hjpeg->jpeg_power_ref--;
+
+    return rc;
+}
+
+static long hjpeg_encode_set_reg(hjpeg_t* hjpeg, void *arg)
+{
+    long rc = -EINVAL;
+
+    if(!is_hjpeg_encode_power_on(hjpeg)){
+        return rc;
+    }
+
+    return hjpeg->intf->vtbl->set_reg(hjpeg->intf, arg);
+}
+
+static long hjpeg_encode_get_reg(hjpeg_t* hjpeg, void *arg)
+{
+    long rc = -EINVAL;
+
+    if(!is_hjpeg_encode_power_on(hjpeg)){
+        return rc;
+    }
+
+    return hjpeg->intf->vtbl->get_reg(hjpeg->intf, arg);
+}
 
 static long
 hjpeg_vo_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
@@ -41,19 +135,19 @@ hjpeg_vo_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 
     switch (cmd) {
         case HJPEG_ENCODE_PROCESS:
-            rc = hjpeg->intf->vtbl->encode_process(hjpeg->intf, arg);
+            rc = hjpeg_encode_process(hjpeg, arg);
             break;
         case HJPEG_ENCODE_POWERON:
-            rc = hjpeg->intf->vtbl->power_on(hjpeg->intf);
+            rc = hjpeg_encode_power_on(hjpeg);
             break;
         case HJPEG_ENCODE_POWERDOWN:
-            rc = hjpeg->intf->vtbl->power_down(hjpeg->intf);
+            rc = hjpeg_encode_power_down(hjpeg);
             break;
         case HJPEG_ENCODE_SETREG:
-            rc = hjpeg->intf->vtbl->set_reg(hjpeg->intf, arg);
+            rc = hjpeg_encode_set_reg(hjpeg, arg);
             break;
         case HJPEG_ENCODE_GETREG:
-            rc = hjpeg->intf->vtbl->get_reg(hjpeg->intf, arg);
+            rc = hjpeg_encode_get_reg(hjpeg, arg);
             break;
         default:
             cam_info("%s: invalid ioctl cmd for hjpeg!!!cmd is %d\n", __func__, cmd);
@@ -146,7 +240,7 @@ hjpeg_register(
 
     jpeg->intf = si;
     jpeg->pdev = pdev;
-
+    jpeg->jpeg_power_ref = 0;
 
 register_fail:
     return rc;

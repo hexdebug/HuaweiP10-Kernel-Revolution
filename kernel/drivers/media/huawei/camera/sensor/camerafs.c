@@ -67,12 +67,10 @@ static dev_t osi_devnum;
 wait_queue_head_t ois_que;
 static int ois_check = 0;
 #define OIS_TEST_TIMEOUT        ((HZ) * 8)
-#ifdef DEBUG_HISI_CAMERA
 static int ois_done = 0;
 static int cross_width = -1;
 static int cross_height = -1;
 static int ic_num = -1;
-#endif
 spinlock_t pix_lock = __SPIN_LOCK_UNLOCKED("camerafs");
 
 
@@ -119,7 +117,7 @@ static struct device_attribute sensor_thermal_meter1 =
 static struct device_attribute sensor_thermal_meter2 =
      __ATTR(thermal_meter2, 0664, hw_sensor_thermal_meter_show2, hw_sensor_thermal_meter_store);
 int register_camerafs_ois_attr(struct device_attribute *attr);
-#ifdef DEBUG_HISI_CAMERA
+
 static ssize_t hw_ois_aging_store(struct device *dev,
 struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -134,8 +132,8 @@ struct device_attribute *attr, const char *buf, size_t count)
     wake_up_interruptible(&ois_que);
     return count;
 }
-#endif
-#ifdef DEBUG_HISI_CAMERA
+
+
 static ssize_t hw_ois_aging_show(struct device *dev,
 struct device_attribute *attr,char *buf)
 {
@@ -153,11 +151,11 @@ struct device_attribute *attr,char *buf)
 
     return ret;
 }
-#endif
-#ifdef DEBUG_HISI_CAMERA
+
+
 static struct device_attribute hw_ois_aging =
 __ATTR(ois_aging, 0664, hw_ois_aging_show, hw_ois_aging_store);
-#endif
+
 static ssize_t hw_ois_check_store(struct device *dev,
 struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -195,7 +193,7 @@ static struct device_attribute hw_ois_check =
 __ATTR(ois_check, 0664, hw_ois_check_show, hw_ois_check_store);
 
 // add for ois mmi test
-#ifdef DEBUG_HISI_CAMERA
+
 static ssize_t hw_ois_test_mmi_show(struct device *dev,
 struct device_attribute *attr,char *buf)
 {
@@ -211,8 +209,8 @@ struct device_attribute *attr,char *buf)
 
     return ret;
 }
-#endif
-#ifdef DEBUG_HISI_CAMERA
+
+
 static ssize_t hw_ois_test_mmi_store(struct device *dev,
 struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -234,12 +232,12 @@ struct device_attribute *attr, const char *buf, size_t count)
 
     return count;
 }
-#endif
-#ifdef DEBUG_HISI_CAMERA
+
+
 static struct device_attribute hw_ois_pixel =
 __ATTR(ois_pixel, 0664, hw_ois_test_mmi_show, hw_ois_test_mmi_store);
-#endif
-#ifdef DEBUG_HISI_CAMERA
+
+
 static ssize_t hw_ois_ic_num_show(struct device *dev,
 struct device_attribute *attr,char *buf)
 {
@@ -252,8 +250,8 @@ struct device_attribute *attr,char *buf)
 
     return ret;
 }
-#endif
-#ifdef DEBUG_HISI_CAMERA
+
+
 static ssize_t hw_ois_ic_num_store(struct device *dev,
 struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -274,11 +272,9 @@ struct device_attribute *attr, const char *buf, size_t count)
 
     return count;
 }
-#endif
-#ifdef DEBUG_HISI_CAMERA
+
 static struct device_attribute hw_ois_icnum =
 __ATTR(ois_icnum, 0664, hw_ois_ic_num_show, hw_ois_ic_num_store);
-#endif
 int register_camerafs_attr(struct device_attribute *attr);
 
 static int __init camerafs_module_init(void)
@@ -314,11 +310,9 @@ static int __init camerafs_module_init(void)
 		return -1;
 	}
 
-#ifdef DEBUG_HISI_CAMERA
         register_camerafs_ois_attr(&hw_ois_aging);
         register_camerafs_ois_attr(&hw_ois_pixel);
         register_camerafs_ois_attr(&hw_ois_icnum);
-#endif
         register_camerafs_attr(&sensor_thermal_meter0);
         register_camerafs_attr(&sensor_thermal_meter1);
         register_camerafs_attr(&sensor_thermal_meter2);
