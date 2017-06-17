@@ -12,7 +12,6 @@
 #include <linux/types.h>
 #include <media/huawei/camera.h>
 #include <media/v4l2-subdev.h>
-#include <linux/hisi/hw_cmdline_parse.h>
 
 #include "hwcam_intf.h"
 #include "hwsensor.h"
@@ -31,16 +30,9 @@ typedef struct _tag_hwsensor
     struct ion_handle*                          cfg_hdl;
 } hwsensor_t;
 
-#define SENSOR_POWER_DOWN     0
-#define SENSOR_POWER_ON       1
-
-#define dev_to_video_device(i) container_of((i), struct video_device, dev)
-#define to_hwsensor_t(i) container_of((i), hwsensor_t, lock)
 #define SD2Sensor(sd) container_of(sd, hwsensor_t, subdev)
 #define I2S(i) container_of(i, sensor_t, intf)
 
-//lint -save -e838 -e732 -e747 -e713 -e826 -e715 -e785  -e774 -esym(753,*)
-//lint -save -e578 -e438 -e30 -e142 -e64 -esym(528,*)
 static int hw_sensor_subdev_internal_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
     hwsensor_t *s = SD2Sensor(sd);
@@ -282,96 +274,17 @@ s_subdev_ops_hwsensor =
     .video = &s_subdev_video_ops_hwsensor,
 };
 
-static ssize_t hw_sensor_powerctrl_show(struct device *dev,
-    struct device_attribute *attr,char *buf)
-{
-    cam_info("enter %s", __func__);
-    return 1;
-}
-
-static ssize_t hw_sensor_powerctrl_store(struct device *dev,
-    struct device_attribute *attr, const char *buf, size_t count)
-{
-    struct video_device *devnode = NULL;
-    struct mutex *lock = NULL;
-    hwsensor_t* sensor = NULL;
-    hwsensor_intf_t * intf = NULL;
-    int state = 0;
-    if (NULL == dev || NULL == attr || NULL == buf) {
-        cam_err("%s dev or attr or buf is NULL!", __func__);
-        return -EINVAL;
-    }
-    state = simple_strtol(buf, NULL, 10);
-    cam_info("enter %s, state %d", __func__, state);
-    devnode = dev_to_video_device(dev);
-    if (NULL == devnode) {
-        cam_err("%s devnode is NULL!", __func__);
-        return -EINVAL;
-    }
-    lock = devnode->lock;
-    if (NULL == lock) {
-        cam_err("%s lock is NULL!", __func__);
-        return -EINVAL;
-    }
-    sensor = to_hwsensor_t(lock);
-    if (NULL == sensor) {
-        cam_err("%s sensor is NULL!", __func__);
-        return -EINVAL;
-    }
-    intf = sensor->intf;
-    if (NULL == intf) {
-        cam_err("%s intf is NULL", __func__);
-        return -EINVAL;
-    }
-    if (intf->vtbl) {
-        int rc = 0;
-        if (SENSOR_POWER_ON == state && intf->vtbl->power_up) {
-            rc = intf->vtbl->power_up(intf);
-            cam_info("%s sensor power up, rc = %d", __func__, rc);
-        } else if (SENSOR_POWER_DOWN == state && intf->vtbl->power_down) {
-            rc = intf->vtbl->power_down(intf);
-            cam_info("%s sensor power down, rc = %d", __func__, rc);
-        }
-    }
-    return count;
-}
-
-static struct device_attribute hw_sensor_powerctrl =
-    __ATTR(sensor_power_ctrl, 0664, hw_sensor_powerctrl_show, hw_sensor_powerctrl_store);
-
-int hw_camera_register_attribute(hwsensor_intf_t* intf, struct device* dev)
-{
-    int ret = 0;
-    cam_info("enter %s", __func__);
-    if (NULL == intf || NULL == dev)
-    {
-        cam_err("%s intf or dev is NULL.", __func__);
-        return -EINVAL;
-    }
-    ret = device_create_file(dev, &hw_sensor_powerctrl);
-    if (ret < 0) {
-        cam_err("%s failed to create power ctrl attribute.", __func__);
-        return ret;
-    }
-    return 0;
-}
-
 int
 hwsensor_register(
         struct platform_device* pdev,
         hwsensor_intf_t* si)
 {
     int rc = 0;
+
     struct v4l2_subdev* subdev = NULL;
-    hwsensor_t* sensor = NULL;
-
-    if (NULL == pdev || NULL == si) {
-        cam_err("%s pdev or si is NULL.", __func__);
-        return -EINVAL;
-    }
-
-    sensor = (hwsensor_t*)kzalloc(
+    hwsensor_t* sensor = (hwsensor_t*)kzalloc(
             sizeof(hwsensor_t), GFP_KERNEL);
+
     if (sensor == NULL) {
         rc = -ENOMEM;
         goto register_fail;
@@ -402,17 +315,8 @@ hwsensor_register(
     sensor->cfg = NULL;
     sensor->cfg_hdl = NULL;
 
-    if (runmode_is_factory()) //just for factory
-    {
-        rc = hw_camera_register_attribute(si, &subdev->devnode->dev);
-        if (rc < 0) {
-            cam_err("%s failed to register camera attribute node.", __func__);
-            return rc;
-        }
-    }
-    if (si->vtbl->sensor_register_attribute) {
+    if (si->vtbl->sensor_register_attribute)
         rc = si->vtbl->sensor_register_attribute(si, &subdev->devnode->dev);
-    }
 
 register_fail:
     return rc;
@@ -432,4 +336,3 @@ hwsensor_unregister(hwsensor_intf_t* si)
     kzfree(sensor);
 }
 
-//lint -restore

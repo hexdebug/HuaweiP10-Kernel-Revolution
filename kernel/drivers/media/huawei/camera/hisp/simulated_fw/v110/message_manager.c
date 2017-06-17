@@ -180,7 +180,7 @@ int simulated_fw_query_capability(void *isp_msg_r)
 	int name_len = strlen(isp_msg->u.req_query_capability.sensor_name);
 	isp_msg_ack.u.ack_query_capability.status = 0;
 	/* Do something. */
-	for (i = 0; i < MAX_ACQUIRE_CAMERA_NUM_V110; i++) {
+	for (i = 0; i < MAX_ACQUIRE_CAMERA_NUM; i++) {
 		cmp = strcmp(simulated_fw_camera_info[i].sensor_name,
 			     (isp_msg->u.req_query_capability.sensor_name));
 
@@ -300,7 +300,7 @@ int simulated_fw_acquire_camera(void *isp_msg_r)
 	cam_info("%s , req camera id:%u name:%s", __func__,
 		 isp_msg->u.req_acquire_camera.cam_id,
 		 isp_msg->u.req_acquire_camera.sensor_name);
-	for (i = 0; i < MAX_ACQUIRE_CAMERA_NUM_V110; i++) {
+	for (i = 0; i < MAX_ACQUIRE_CAMERA_NUM; i++) {
 		/*
 		 * Try to find matched camera name
 		 * from current camera informations.
@@ -357,7 +357,7 @@ int simulated_fw_release_camera(void *isp_msg_r)
 	 * Try to find matched camera handle
 	 * from current camera informations.
 	 */
-	for (i = 0; i < MAX_ACQUIRE_CAMERA_NUM_V110; i++) {
+	for (i = 0; i < MAX_ACQUIRE_CAMERA_NUM; i++) {
 		if (isp_msg->u.req_release_camera.cam_id ==
                  //cppcheck-suppress *
 		    simulated_fw_camera_info[i].camera_id) {
@@ -456,7 +456,7 @@ int simulated_fw_usecase_config(void *isp_msg_r)
 	 * Try to find matched camera handle
 	 * from current camera informations.
 	 */
-	for (i = 0; i < MAX_ACQUIRE_CAMERA_NUM_V110; i++) {
+	for (i = 0; i < MAX_ACQUIRE_CAMERA_NUM; i++) {
 		if (isp_msg->u.req_usecase_config.cam_id ==
                  //cppcheck-suppress *
 		    simulated_fw_camera_info[i].camera_id) {
@@ -691,7 +691,7 @@ int simulated_fw_request(void *isp_msg_r)
 	 * Try to find matched camera handle
 	 * from current camera informations.
 	 */
-	for (i = 0; i < MAX_ACQUIRE_CAMERA_NUM_V110; i++) {
+	for (i = 0; i < MAX_ACQUIRE_CAMERA_NUM; i++) {
 		if (isp_msg->u.req_request.cam_id ==
                  //cppcheck-suppress *
 		    simulated_fw_camera_info[i].camera_id) {
@@ -973,7 +973,7 @@ int simulated_fw_use_mem_pool(void *isp_msg_r)
 	 * Try to find matched camera handle
 	 * from current camera informations.
 	 */
-	for (i = 0; i < MAX_ACQUIRE_CAMERA_NUM_V110; i++) {
+	for (i = 0; i < MAX_ACQUIRE_CAMERA_NUM; i++) {
 		if (isp_msg->u.req_map_buffer.cam_id ==
                  //cppcheck-suppress *
 		    simulated_fw_camera_info[i].camera_id) {
@@ -1014,7 +1014,7 @@ int simulated_fw_unmap_buffer(void *isp_msg_r)
 	 * Try to find matched camera handle
 	 * from current camera informations.
 	 */
-	for (i = 0; i < MAX_ACQUIRE_CAMERA_NUM_V110; i++) {
+	for (i = 0; i < MAX_ACQUIRE_CAMERA_NUM; i++) {
 		if (isp_msg->u.req_unmap_buffer.cam_id ==
                   //cppcheck-suppress *
 		    simulated_fw_camera_info[i].camera_id) {
@@ -1062,7 +1062,7 @@ int simulated_fw_set_cal_data(void *isp_msg_r)
 	 * Try to find matched camera handle
 	 * from current camera informations.
 	 */
-	for (i = 0; i < MAX_ACQUIRE_CAMERA_NUM_V110; i++) {
+	for (i = 0; i < MAX_ACQUIRE_CAMERA_NUM; i++) {
 		if (isp_msg->u.req_cal_data.cam_id ==
                  //cppcheck-suppress *
 		    simulated_fw_camera_info[i].camera_id) {

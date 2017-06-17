@@ -90,7 +90,6 @@ typedef struct _tag_hwlaser_info
     char                                        product_name[HWLASER_NAME_SIZE];
     char                                        name[HWLASER_NAME_SIZE];
     int                                         i2c_idx;
-    int                                         valid;
 } hwlaser_info_t;
 
 typedef enum _tag_hwlaser_event_kind

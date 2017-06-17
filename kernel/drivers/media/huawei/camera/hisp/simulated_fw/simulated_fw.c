@@ -92,15 +92,6 @@ void add_kernel_map_addr(int iova, struct ion_handle *hdl,
 	/* cam_info("%s() enter, iova: 0x%x, map_kernel_addr: 0x%x", __func__, iova, map_kernel_addr) */;
 	map_buffer_info *pdata =
 	    (map_buffer_info *) kmalloc(sizeof(map_buffer_info), GFP_KERNEL);
-	if(pdata == NULL)
-	{
-		pdata = (map_buffer_info *) kmalloc(sizeof(map_buffer_info), GFP_KERNEL);
-		if(pdata == NULL)
-		{
-			cam_err("%s():allocate memory for link data failed", __func__);
-			return;
-		}
-	}
 	pdata->iova = iova;
 	pdata->hdl = hdl;
 	pdata->map_kernel_addr = map_kernel_addr;

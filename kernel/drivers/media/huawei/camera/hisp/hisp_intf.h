@@ -3,7 +3,7 @@
 #ifndef __HW_JACKY_KERNEL_HISP_INTERFACE_H__
 #define __HW_JACKY_KERNEL_HISP_INTERFACE_H__
 
-#if defined( CHICAGO_CAMERA  ) || defined( BOSTON_CAMERA  )
+#ifdef CHICAGO_CAMERA
 #include <media/huawei/hisp150_cfg.h>
 #else
 #include <media/huawei/hisp_cfg.h>

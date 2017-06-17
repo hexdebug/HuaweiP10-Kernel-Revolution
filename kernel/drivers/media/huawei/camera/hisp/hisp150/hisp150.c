@@ -149,7 +149,7 @@ static void hisp150_update_ddrfreq(unsigned int ddr_bandwidth);
 
 void hisp150_init_timestamp(void);
 void hisp150_destroy_timestamp(void);
-void hisp150_set_timestamp(unsigned int *timestampH, unsigned int *timestampL);
+void hisp150_set_timestamp(msg_ack_request_t *ack);
 void hisp150_handle_msg(hisp_msg_t *msg);
 
 static bool hisp150_is_secure_supported(void)
@@ -199,7 +199,7 @@ void hisp150_destroy_timestamp(void)
  *we can calculate fw_timeval with fw syscounter
  *and deliver it to hal. Hal then gets second and microsecond
  *********************************************/
-void hisp150_set_timestamp(unsigned int *timestampH, unsigned int *timestampL)
+void hisp150_set_timestamp(msg_ack_request_t *ack)
 {
 /* #define NANOSECOND_PER_SECOND 	(1000000000) */
 
@@ -207,26 +207,24 @@ void hisp150_set_timestamp(unsigned int *timestampH, unsigned int *timestampL)
 	u64 fw_micro_second = 0;
 	u64 fw_sys_counter = 0;
 	u64 micro_second = 0;
+	if (NULL == ack){
+		cam_err("%s err ack is NULL.", __func__);
+		return;
+	}
 
-
-	if (TIMESTAMP_UNINTIAL ==  s_timestamp_state) {
+	if (TIMESTAMP_UNINTIAL ==  s_timestamp_state){
 		cam_err("%s wouldn't enter this branch.\n", __func__);
 		hisp150_init_timestamp();
 	}
 
-	if (timestampH == NULL || timestampL == NULL) {
-		cam_err("%s timestampH or timestampL is null.\n", __func__);
-		return;
-	}
-
 	cam_debug("%s ack_high:0x%x ack_low:0x%x", __func__,
-		*timestampH, *timestampL);
+		ack->timestampH, ack->timestampL);
 
-	if (*timestampH == 0 && *timestampL == 0) {
+	if (ack->timestampH == 0 && ack->timestampL == 0) {
 		return;
 	}
 
-    fw_sys_counter = ((u64)(*timestampH)<< 32) | (u64)(*timestampL);//lint !e838
+	fw_sys_counter = ((u64)ack->timestampH<< 32) | (u64)ack->timestampL;//lint !e838
 	micro_second = (fw_sys_counter - s_system_counter) * MICROSECOND_PER_SECOND / s_system_couter_rate;//lint !e838
 
 	//chang nano second to micro second
@@ -238,10 +236,10 @@ void hisp150_set_timestamp(unsigned int *timestampH, unsigned int *timestampL)
 	//fw_micro_second= s_timeval.tv_sec * MICROSECOND_PER_SECOND + s_timeval.tv_usec;
 #endif
 
-	*timestampH = (u32)(fw_micro_second >>32 & 0xFFFFFFFF);
-	*timestampL = (u32)(fw_micro_second & 0xFFFFFFFF);
+	ack->timestampH = (u32)(fw_micro_second >>32 & 0xFFFFFFFF);
+	ack->timestampL = (u32)(fw_micro_second & 0xFFFFFFFF);
 
-	cam_debug("%s h:0x%x l:0x%x", __func__, *timestampH, *timestampL);
+	cam_debug("%s h:0x%x l:0x%x", __func__, ack->timestampH, ack->timestampL);
 }
 
 void hisp150_handle_msg(hisp_msg_t *msg)
@@ -251,10 +249,7 @@ void hisp150_handle_msg(hisp_msg_t *msg)
 	switch (msg->api_name)
 	{
 		case REQUEST_RESPONSE:
-			hisp150_set_timestamp(&(msg->u.ack_request.timestampH), &(msg->u.ack_request.timestampL));
-			break;
-		case MSG_EVENT_SENT:
-			hisp150_set_timestamp(&(msg->u.event_sent.timestampH), &(msg->u.event_sent.timestampL));
+			hisp150_set_timestamp(&(msg->u.ack_request));
 			break;
 
 		default:
@@ -408,11 +403,7 @@ hisp150_rpmsg_ept_cb(struct rpmsg_channel *rpdev,
 	msg = (hisp_msg_t *) (data);
 	/* save the data and wait for hisp150_recv_rpmsg to get the data*/
 	hisp150_save_rpmsg_data(data, len);
-	hisp_recvx();
-    if(msg->api_name == RELEASE_CAMERA_RESPONSE)
-    {
-         hisp_rpmsgrefs_dump();
-    }
+
 }
 
 char const *hisp150_get_name(hisp_intf_t *i)
@@ -511,7 +502,6 @@ static int hisp150_config(hisp_intf_t *i, void *cfg)
 	struct hisp_cfg_data *pcfg = NULL;
 
 	hisp_assert(NULL != i);
-	cam_info("%s enter\n", __func__);
 	if (NULL == cfg){
 		cam_err("func %s: cfg is NULL",__func__);
 		return -1;
@@ -526,7 +516,6 @@ static int hisp150_config(hisp_intf_t *i, void *cfg)
 			if(pcfg->isSecure == 0){
 				hisi_isp_rproc_case_set(NONSEC_CASE);
 			}else if(pcfg->isSecure == 1){
-				cam_info("%s secure mode\n", __func__);
 				hisi_isp_rproc_case_set(SEC_CASE);
 			}else{
 				cam_info("%s invalid mode\n", __func__);
@@ -571,7 +560,7 @@ static int hisp150_power_on(hisp_intf_t *i)
 	int rc = 0;
 	bool rproc_enable = false;
 	bool hi_opened = false;
-    bool ion_client_created = false;
+       bool ion_client_created = false;
 	hisp150_t *hi = NULL;
 	unsigned long current_jiffies = jiffies;
 	uint32_t timeout = hw_is_fpga_board() ? 30000 : 15000;
@@ -604,7 +593,6 @@ static int hisp150_power_on(hisp_intf_t *i)
 				}
 		}
 
-        hisp_rpmsgrefs_reset();
 		rc = hisi_isp_rproc_enable();
 		if (rc != 0) {
 			HiLOGE(HILOG_CAMERA_MODULE_NAME, HILOG_CAMERA_SUBMODULE_NAME, "Failed: hisi_isp_rproc_enable.%d!\n", rc);
@@ -876,7 +864,6 @@ hisp150_send_rpmsg(hisp_intf_t *i, hisp_msg_t *from_user, size_t len)
 			cam_err("%s() %d failed: first rpmsg_send_offchannel ret is %d!\n", __func__,
 				__LINE__, rc);
 		}
-        hisp_sendin();
 		goto UNLOCK_RET;
 	}
 
@@ -887,7 +874,6 @@ hisp150_send_rpmsg(hisp_intf_t *i, hisp_msg_t *from_user, size_t len)
 			__LINE__, rc);
 		goto UNLOCK_RET;
 	}
-    hisp_sendin();
 
 UNLOCK_RET:
 	mutex_unlock(&hisi_serv->send_lock);

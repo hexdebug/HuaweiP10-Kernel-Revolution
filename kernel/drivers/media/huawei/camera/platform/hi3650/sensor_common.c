@@ -811,7 +811,7 @@ int hw_sensor_i2c_write_seq( sensor_t *s_ctrl, void *data)
 	int data_length = sizeof(struct sensor_i2c_reg)*cdata->cfg.setting.size;
 	long rc = 0;
 
-	cam_info("%s: enter setting=%pK size=%d.\n", __func__,
+	cam_info("%s: enter setting=%p size=%d.\n", __func__,
 			cdata->cfg.setting.setting,
 			(unsigned int)cdata->cfg.setting.size);
 
@@ -929,7 +929,7 @@ int hw_sensor_get_dt_data(struct platform_device *pdev,
 	u32 i, index = 0;
 	char *gpio_tag = NULL;
 	const char *gpio_ctrl_types[IO_MAX] =
-		{"reset", "fsin", "pwdn", "vcm_pwdn", "suspend", "suspend2", "reset2", "ldo_en", "ois", "ois2", "dvdd0-en", "dvdd1-en", "iovdd-en", "mispdcdc-en"};
+		{"reset", "fsin", "pwdn", "vcm_pwdn", "suspend", "reset2", "ldo_en", "ois", "ois2", "dvdd0-en", "dvdd1-en", "iovdd-en", "mispdcdc-en"};
 
 	cam_debug("enter %s", __func__);
 	sensor_info = kzalloc(sizeof(hwsensor_board_info_t),

@@ -1,4 +1,4 @@
-comment "Huawei Sensor hi6250"
+comment "Huawei Sensor"
 
 source "drivers/media/huawei/camera/sensor/vcm/Kconfig"
 source "drivers/media/huawei/camera/sensor/flash/Kconfig"
@@ -11,11 +11,6 @@ config HUAWEI_CAMERA_USE_IMX214
 
 config HUAWEI_CAMERA_USE_IMX219
 	bool "imx219"
-    default y
-	depends on HUAWEI_CAMERA
-
-config HUAWEI_CAMERA_USE_IMX219BLN
-	bool "imx219BLN"
     default y
 	depends on HUAWEI_CAMERA
 
@@ -49,11 +44,6 @@ config HUAWEI_CAMERA_USE_HI843
     default y
 	depends on HUAWEI_CAMERA
 
-config HUAWEI_CAMERA_USE_HI843BLN
-	bool "hi843BLN"
-    default y
-	depends on HUAWEI_CAMERA
-
 config HUAWEI_CAMERA_USE_T4KA3
 	bool "t4ka3"
     default y
@@ -84,47 +74,7 @@ config HUAWEI_CAMERA_USE_OV12870E3
     default n
         depends on HUAWEI_CAMERA
 
-config HUAWEI_CAMERA_USE_OV12A10
-        bool "ov12a10"
-    default y
-        depends on HUAWEI_CAMERA
-
 config HUAWEI_CAMERA_USE_IMX486
 	bool "imx486"
     default y
 	depends on HUAWEI_CAMERA
-
-config HUAWEI_CAMERA_USE_IMX486PIC
-        bool "imx486PIC"
-    default n
-        depends on HUAWEI_CAMERA
-
-config HUAWEI_CAMERA_USE_OV12A10PIC
-        bool "ov12a10PIC"
-    default n
-        depends on HUAWEI_CAMERA
-
-config HUAWEI_CAMERA_USE_OV12A10DUAL
-        bool "ov12a10DUAL"
-    default n
-        depends on HUAWEI_CAMERA
-
-config HUAWEI_CAMERA_USE_OV20880
-        bool "ov20880"
-    default n
-        depends on HUAWEI_CAMERA
-
-config HUAWEI_CAMERA_USE_OV20880BAC
-        bool "ov20880BAC"
-    default n
-        depends on HUAWEI_CAMERA
-
-config HUAWEI_CAMERA_USE_IMX376
-        bool "imx376"
-    default n
-        depends on HUAWEI_CAMERA
-
-config HUAWEI_CAMERA_USE_IMX376BAC
-        bool "imx376BAC"
-    default n
-        depends on HUAWEI_CAMERA

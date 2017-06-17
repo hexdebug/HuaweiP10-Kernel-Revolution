@@ -128,7 +128,6 @@ enum sensor_power_seq_type_t {
     SENSOR_PWDN,
     SENSOR_VCM_PWDN,
     SENSOR_SUSPEND, /* using for suspend the sensor */
-    SENSOR_SUSPEND2, /* using for suspend the sub sensor */
     SENSOR_CHECK_LEVEL,
     SENSOR_DVDD,
     SENSOR_DVDD2, /* using for power up second sensor's ldo */
@@ -159,9 +158,6 @@ enum sensor_power_seq_type_t {
     SENSOR_MIPI_SW,/* 2M and 8M mipi switch*/
     SENSOR_RST3,//used to 2M camera  when reset
     SENSOR_PWDN2,//used to 2M camera when power down
-
-    SENSOR_OIS_DRV,//used to  power up ois by ldo for boston udp
-    SENSOR_AVDD1_EN,//used for power up front sensor's gpio
 };
 
 enum sensor_power_pmic_type_t {
@@ -272,8 +268,6 @@ typedef enum {
     LDO_AVDD0,
     LDO_AVDD1,
     LDO_MINI_ISP,
-    LDO_IOVDD,
-    LDO_OISDRV,
     LDO_MAX,
 } ldo_index_t;
 
@@ -283,7 +277,6 @@ typedef enum {
     PWDN,
     VCM,
     SUSPEND,//used to suspend the other sensor when power up
-    SUSPEND2,//used to suspend the sub sensor when power up
     RESETB2, //add by hefei
     LDO_EN,
     OIS,
@@ -295,8 +288,8 @@ typedef enum {
     MIPI_SW,
     RESETB3,//used to 2M camera  when reset
     PWDN2,//used to 2M camera when power down
-    AVDD1_EN,//used for power up front sensor's gpio
     IO_MAX,
+
 } gpio_t;
 
 typedef enum {

@@ -58,8 +58,7 @@ typedef enum
 #define PDAF_CORRECT_MAP        352     /* Shield Pixel Correction Map */
 #define PDAF_DEFOCUS_COEF       384     /* Defocus Conversion Coefficient */
 #define PDAF_HW_SLOPE_DATA      768     /* Huawei Phase Detection Slope Data */
-#define PDAF_ENLARGE            32      /* PDAF data for OV sensor enlarger*/
-#define PDAF_OTP_SIZE           (PDAF_CORRECT_MAP + PDAF_DEFOCUS_COEF + PDAF_HW_SLOPE_DATA + PDAF_ENLARGE)
+#define PDAF_OTP_SIZE           (PDAF_CORRECT_MAP + PDAF_DEFOCUS_COEF + PDAF_HW_SLOPE_DATA)
 
 #define MAX_OTP_SIZE            (0x3879) /*expand 0x37e2-0x3878 for sfr data*/
 

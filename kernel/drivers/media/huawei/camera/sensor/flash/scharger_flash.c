@@ -47,11 +47,8 @@ static struct hw_flash_ctrl_t hw_scharger_ctrl;
 //whether need to mute audio when flash
 static unsigned int audio_codec_mute_flag = 0;
 
-DEFINE_HISI_FLASH_MUTEX(scharger);
 
-#ifdef CAMERA_FLASH_FACTORY_TEST
-extern int register_camerafs_attr(struct device_attribute *attr);
-#endif
+DEFINE_HISI_FLASH_MUTEX(scharger);
 
 static int hw_scharger_init(struct hw_flash_ctrl_t *flash_ctrl)
 {
@@ -306,6 +303,12 @@ static int hw_scharger_off(struct hw_flash_ctrl_t *flash_ctrl)
     return 0;
 }
 
+static int hw_scharger_match(struct hw_flash_ctrl_t *flash_ctrl)
+{
+    cam_debug("%s ernter.\n", __func__);
+    return 0;
+}
+
 static int hw_scharger_get_dt_data(struct hw_flash_ctrl_t *flash_ctrl)
 {
     struct hw_scharger_private_data_t *pdata;
@@ -374,7 +377,6 @@ static int hw_scharger_get_dt_data(struct hw_flash_ctrl_t *flash_ctrl)
     return rc;
 }
 
-#ifdef CAMERA_FLASH_FACTORY_TEST
 static ssize_t hw_scharger_lightness_show(struct device *dev,
     struct device_attribute *attr,char *buf)
 {
@@ -423,22 +425,15 @@ static ssize_t hw_scharger_lightness_store(struct device *dev,
     struct hw_flash_cfg_data cdata = {0};
     unsigned long param[2] = {0};
     int rc = 0;
-    struct hw_scharger_private_data_t *pdata = (struct hw_scharger_private_data_t *)(hw_scharger_ctrl.pdata);
 
-    cam_info("%s enter,buf=%s.", __func__,buf);
     rc = hw_scharger_param_check((char *)buf, param, 2);
     if (rc < 0) {
         cam_err("%s failed to check param.", __func__);
         return rc;
     }
 
-    char flash_id = (int)param[0];
-    cdata.mode = (int)param[1];
-    cam_info("%s flash_id=%d,cdata.mode=%d.", __func__, flash_id, cdata.mode);
-    if(1 != flash_id){//bit[0]- rear first flash light.bit[1]- rear sencond flash light.bit[2]- front flash light; dallas product using only rear first flash light
-        cam_err("%s scharger wrong flash_id=%d.", __func__,flash_id);
-        return -1;
-    }
+    cdata.mode = (int)param[0];
+    cdata.data = (int)param[1];
 
     if (cdata.mode == STANDBY_MODE) {
         rc = hw_scharger_off(&hw_scharger_ctrl);
@@ -446,23 +441,16 @@ static ssize_t hw_scharger_lightness_store(struct device *dev,
             cam_err("%s scharger flash off error.", __func__);
             return rc;
         }
-    } else if(cdata.mode == TORCH_MODE){
-        cdata.data = pdata->torch_led_num-1;//hardware test requiring the max torch mode current level NO.
-        cam_info("%s mode=%d, max_current=%d.", __func__, cdata.mode, cdata.data);
-
+    } else {
         rc = hw_scharger_on(&hw_scharger_ctrl, &cdata);
         if (rc < 0) {
             cam_err("%s scharger flash on error.", __func__);
             return rc;
         }
-    } else {
-        cam_err("%s scharger wrong mode=%d.", __func__,cdata.mode);
-        return -1;
     }
 
     return count;
 }
-#endif
 
 static ssize_t hw_scharger_flash_mask_show(struct device *dev,
     struct device_attribute *attr,char *buf)
@@ -512,10 +500,8 @@ static void hw_scharger_torch_brightness_set(struct led_classdev *cdev,
     }
 }
 
-#ifdef CAMERA_FLASH_FACTORY_TEST
 static struct device_attribute hw_scharger_lightness =
-    __ATTR(flash_lightness, 0664, hw_scharger_lightness_show, hw_scharger_lightness_store);
-#endif
+    __ATTR(lightness, 0664, hw_scharger_lightness_show, hw_scharger_lightness_store);
 
 static struct device_attribute hw_scharger_flash_mask =
     __ATTR(flash_mask, 0664, hw_scharger_flash_mask_show, hw_scharger_flash_mask_store);
@@ -545,13 +531,13 @@ static int hw_scharger_register_attribute(struct hw_flash_ctrl_t *flash_ctrl,
         cam_err("%s failed to register torch classdev.", __func__);
         goto err_out;
     }
-#ifdef CAMERA_FLASH_FACTORY_TEST
+
     rc = device_create_file(dev, &hw_scharger_lightness);
     if (rc < 0) {
         cam_err("%s failed to creat lightness attribute.", __func__);
         goto err_create_lightness_file;
     }
-#endif
+
     rc = device_create_file(dev, &hw_scharger_flash_mask);
     if (rc < 0) {
         cam_err("%s failed to creat flash_mask attribute.", __func__);
@@ -561,23 +547,12 @@ static int hw_scharger_register_attribute(struct hw_flash_ctrl_t *flash_ctrl,
     return 0;
 
 err_create_flash_mask_file:
-#ifdef CAMERA_FLASH_FACTORY_TEST
     device_remove_file(dev, &hw_scharger_lightness);
 err_create_lightness_file:
-#endif
     led_classdev_unregister(&flash_ctrl->cdev_torch);
 err_out:
 
     return rc;
-}
-
-static int hw_scharger_match(struct hw_flash_ctrl_t *flash_ctrl)
-{
-    cam_info("%s ernter.\n", __func__);
-#ifdef CAMERA_FLASH_FACTORY_TEST
-    register_camerafs_attr(&hw_scharger_lightness);
-#endif
-    return 0;
 }
 
 static const struct of_device_id hw_scharger_match_id[] = {

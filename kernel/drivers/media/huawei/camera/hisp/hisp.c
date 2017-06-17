@@ -1,8 +1,7 @@
 
 
 //lint -save -e7
-//lint -save -e30 -e142
-#if defined( CHICAGO_CAMERA  ) || defined( BOSTON_CAMERA  )
+#ifdef CHICAGO_CAMERA
 #include <media/huawei/hisp150_cfg.h>
 #else
 #include <media/huawei/hisp_cfg.h>
@@ -125,16 +124,6 @@ static void * hisp_subdev_get_info(hisp_t *isp, hisp_info_t *info)
 	}
 }
 
-static void
-hisp_subdev_get_system_timestamp(hisp_system_time_t* hisp_system_time )
-{
-    if(hisp_system_time == NULL) {
-        return;
-    }
-    hisp_system_time->s_system_counter = arch_counter_get_cntvct();
-    hisp_system_time->s_system_couter_rate = arch_timer_get_rate();
-    do_gettimeofday(&(hisp_system_time->s_timeval));
-}
 /*Function declaration */
 /**********************************************
  *ioctl function for v4l2 subdev
@@ -176,10 +165,6 @@ hisp_vo_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		/* cam_info("Enter HISP_IOCTL_POWER_ON!\n"); */
 		/* rc = isp->hw->vtbl->power_on(isp->hw); */
 		break;
-    case HISP_IOCTL_GET_SYSTEM_TIME:
-        cam_info("Enter HISP_IOCTL_GET_SYSTEM_TIME!\n");
-        hisp_subdev_get_system_timestamp((hisp_system_time_t*) arg);
-        break;
 	case HISP_IOCTL_POWER_OFF:
 		/* cam_info("Enter HISP_IOCTL_POWER_OFF!\n"); */
 		/* rc = isp->hw->vtbl->power_off(isp->hw); */

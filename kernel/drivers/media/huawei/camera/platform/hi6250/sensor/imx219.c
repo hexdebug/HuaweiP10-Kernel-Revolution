@@ -517,6 +517,7 @@ pinctrl_error:
             gpio_free(sensor->board_info->gpios[FSIN].gpio);
 matchID_exit:
             if (cdata->data != SENSOR_INDEX_INVALID) {
+                hwsensor_writefile(sensor->board_info->sensor_index, cdata->cfg.name);
                 cam_info("%s, cdata->cfg.name = %s", __func__,cdata->cfg.name );
             }
 

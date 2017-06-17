@@ -10,10 +10,6 @@ ifeq ($(CONFIG_HISI_CAMERA_HISTAR_ISPV150), y)
 subdir-ccflags-y += -DCHICAGO_CAMERA
 endif
 
-ifeq ($(CONFIG_HISI_CAMERA_HISTAR_ISPV160), y)
-subdir-ccflags-y += -DBOSTON_CAMERA
-endif
-
 else ifeq ($(CONFIG_HISI_CAMERA_HISTAR_ISPV100), y)
 	obj-y += hisp100/
 
@@ -23,10 +19,6 @@ else ifeq ($(CONFIG_HISI_CAMERA_HISTAR_ISPV110), y)
 else ifeq ($(CONFIG_HISI_CAMERA_HISTAR_ISPV150), y)
 EXTRA_CFLAGS += -DCHICAGO_CAMERA
 	obj-y += hisp150/
-
-else ifeq ($(CONFIG_HISI_CAMERA_HISTAR_ISPV160), y)
-EXTRA_CFLAGS += -DBOSTON_CAMERA
-	obj-y += hisp160/
 endif
 
 ifneq ($(CLT_IV), true)

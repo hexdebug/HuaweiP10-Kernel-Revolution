@@ -5,10 +5,6 @@ EXTRA_CFLAGS += -Idrivers/media/huawei/camera/sensor/flash
 EXTRA_CFLAGS += -Idrivers/media/huawei/camera/
 EXTRA_CFLAGS += -fno-pic
 
-ifeq ($(TARGET_VERSION_MODE),factory)
-EXTRA_CFLAGS += -DCAMERA_FLASH_FACTORY_TEST
-endif 
-
 obj-y += hw_flash_i2c.o
 obj-y += hw_flash.o
 

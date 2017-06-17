@@ -773,7 +773,7 @@ int hw_sensor_i2c_write_seq( sensor_t *s_ctrl, void *data)
 	int data_length = sizeof(struct sensor_i2c_reg)*cdata->cfg.setting.size;
 	long rc = 0;
 
-	cam_info("%s: enter setting=%pK size=%d.\n", __func__,
+	cam_info("%s: enter setting=%p size=%d.\n", __func__,
 			cdata->cfg.setting.setting,
 			(unsigned int)cdata->cfg.setting.size);
 

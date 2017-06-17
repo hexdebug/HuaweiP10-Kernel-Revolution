@@ -34,11 +34,6 @@ config HUAWEI_CAMERA_USE_IMX286DUAL_CMB
     default n
 	depends on HUAWEI_CAMERA
 
-config HUAWEI_CAMERA_USE_IMX286DUAL_DUKE
-	bool "imx286dual_duke"
-    default n
-	depends on HUAWEI_CAMERA
-
 config HUAWEI_CAMERA_USE_OV8865
 	bool "ov8865"
     default y
@@ -54,12 +49,6 @@ config HUAWEI_CAMERA_USE_IMX386HYBIRD
     default y
 	depends on HUAWEI_CAMERA
 
-config HUAWEI_CAMERA_USE_IMX486HYBIRD
-	bool "imx486hybird"
-    default y
-	depends on HUAWEI_CAMERA
-
-
 config HUAWEI_CAMERA_USE_IMX219
 	bool "imx219"
     default n
@@ -70,52 +59,11 @@ config HUAWEI_CAMERA_USE_IMX219_VIC
     default y
 	depends on HUAWEI_CAMERA
 
-config HUAWEI_CAMERA_USE_IMX319
-	bool "imx319"
-    default y
-	depends on HUAWEI_CAMERA
-
-config HUAWEI_CAMERA_USE_IMX219_DUKE
-	bool "imx219_duke"
-    default n
-	depends on HUAWEI_CAMERA
-
-config HUAWEI_CAMERA_USE_IMX219_STF
-	bool "imx219_stf"
-    default n
-	depends on HUAWEI_CAMERA
-
 config HUAWEI_CAMERA_USE_HI843
 	bool "hi843"
     default n
-	depends on HUAWEI_CAMERA
-
-config HUAWEI_CAMERA_USE_HI843_DUKE
-	bool "hi843_duke"
-    default n
-	depends on HUAWEI_CAMERA
-
-config HUAWEI_CAMERA_USE_OV8856_DUKE
-	bool "ov8856_duke"
-    default n
-	depends on HUAWEI_CAMERA
-
-config HUAWEI_CAMERA_USE_HI843_STF
-	bool "hi843_stf"
-    default n
-	depends on HUAWEI_CAMERA
 
 config HUAWEI_CAMERA_USE_OV2281
 	bool "ov2281"
     default y
-	depends on HUAWEI_CAMERA
-
-config HUAWEI_CAMERA_USE_IMX386HYBIRD_STF
-	bool "imx386hybird_stf"
-    default n
-	depends on HUAWEI_CAMERA
-
-config HUAWEI_CAMERA_USE_IMX486HYBIRD_OIS_NA
-	bool "imx486hybird_stf"
-    default n
 	depends on HUAWEI_CAMERA

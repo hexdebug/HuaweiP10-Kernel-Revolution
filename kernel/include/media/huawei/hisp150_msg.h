@@ -672,14 +672,8 @@ typedef struct OISInfo
     char moduleId[64];
 }OISInfo;
 
-typedef enum {
-    WARP_BASE_PRIMARY = 0,
-    WARP_BASE_SECOND,
-}warp_base_t;
-
 typedef struct _warp_cgrid_params_t
 {
-    unsigned int warp_base;
     unsigned int fw_map_addr;
     OISInfo nvinfo;
 } warp_cgrid_params_t;
@@ -1117,18 +1111,9 @@ typedef enum
     SUBCMD_SET_SELF_LEARN_DATA = 145,
     SUBCMD_SET_SFR_TEST_DATA = 146,
     SUBCMD_SET_SCE_HUE_GAIN = 147,
-    SUBCMD_SET_MOTION_INFO = 148,
+    SUBCMD_SET_MOTION_INFO,
     SUBCMD_ENABLE_EIS = 149,
-    SUBCMD_SET_REDUCE_EXPOSURE,
-    SUBCMD_SET_APERTURE_MONO,
-    SUBCMD_SET_LSC_MODE = 152,
-    SUBCMD_SET_SEAMLESS_INFO = 153,
-    SUBCMD_SET_RAW2YUV_INFO = 154,
-    SUBCMD_SET_ISP_ALGO_STATUS = 155,
-    SUBCMD_SET_RAWNF_DS = 156,
-    SUBCMD_SET_YUVNF_DS = 157,
-    SUBCMD_SET_AF_OTPSTART_MODE = 158,
-    SUBCMD_FOV_SCALE_RATIO_STATUS = 159,
+    SUBCMD_SET_AF_OTPSTART_MODE = 150,
     SUBCMD_MAX,
 } extendset_info_e;
 
@@ -1225,8 +1210,7 @@ typedef struct _msg_event_sent_t
     event_info_e event_id;
     unsigned int frame_number;
     unsigned int stream_id;
-    unsigned int timestampL;
-    unsigned int timestampH;
+    unsigned int timestamp;
     char         event_params[EVENT_PARAMS_LEN];
 } msg_event_sent_t;
 
