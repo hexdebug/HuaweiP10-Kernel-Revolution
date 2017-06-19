@@ -28,7 +28,6 @@ obj-$(CONFIG_HI3XXX_EFUSE)                      += efuse/
 obj-$(CONFIG_HISI_CMA)                          += hisi_cma/
 obj-$(CONFIG_TZDRIVER)                          += tzdriver/
 obj-$(CONFIG_LOAD_IMAGE) += load_image/
-obj-$(CONFIG_HISI_SR)                      += pm/
 obj-$(CONFIG_HISI_OCBC)                    += ocbc/
 ifneq ($(link_kernel),false)
 obj-$(CONFIG_HISI_BALONG_MODEM) += modem/

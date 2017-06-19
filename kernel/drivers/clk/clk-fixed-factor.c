@@ -16,9 +16,10 @@
 #include <linux/clkdev.h>
 #endif
 
-#ifdef CONFIG_HISI_CLK
+
+
+
 extern int IS_FPGA(void);
-#endif
 /*
  * DOC: basic fixed multiplier and divider clock that cannot gate
  *
@@ -123,31 +124,31 @@ void __init of_fixed_factor_clk_setup(struct device_node *node)
 	}
 
 	if (of_property_read_u32(node, "clock-mult", &mult)) {
-		pr_err("%s Fixed factor clock <%s> must have a clock-mult property\n",
+		pr_err("%s Fixed factor clock <%s> must have a clokc-mult property\n",
 			__func__, node->name);
 		return;
 	}
 
 	of_property_read_string(node, "clock-output-names", &clk_name);
 #ifdef CONFIG_HISI_CLK
-	if (IS_FPGA()) {
-		if (NULL != of_find_property(node, "clock-fpga", NULL)) {
-			if (of_property_read_string(node, "clock-fpga", &parent_name)) {
-				pr_err("[%s] %s node clock-fpga value is NULL!\n",
-					__func__, node->name);
-				return;
-			}
-		} else {
-			parent_name = of_clk_get_parent_name(node, 0);
+	if (IS_FPGA()){
+                if(NULL != of_find_property(node, "clock-fpga", NULL)){
+                        if (of_property_read_string(node, "clock-fpga", &parent_name)){
+                                pr_err("[%s] %s node clock-fpga value is NULL!\n",
+                                        __func__, node->name);
+                                return;
+                        }
+                }else{
+                         parent_name= of_clk_get_parent_name(node, 0);
 		}
-	} else {
+        }else{
 #endif
-		parent_name = of_clk_get_parent_name(node, 0);
+                parent_name= of_clk_get_parent_name(node, 0);
 #ifdef CONFIG_HISI_CLK
-	}
+        }
 #endif
 
-	clk = clk_register_fixed_factor(NULL, clk_name, parent_name, 0,
+	clk = clk_register_fixed_factor(NULL, clk_name, parent_name, CLK_SET_RATE_PARENT,
 					mult, div);
 	if (!IS_ERR(clk))
 		of_clk_add_provider(node, of_clk_src_simple_get, clk);

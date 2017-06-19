@@ -270,7 +270,7 @@ int ivp_smmu_trans_enable(struct ivp_smmu_dev *smmu_dev)
 	writel((u32)smmu_dev->pgd_base, (smmu_dev->reg_base + SMMU_NS_CB0_TTBR0_LOW));
 	writel(0x0, (smmu_dev->reg_base + SMMU_NS_CB0_TTBR0_HIGH));
 
-	if(request_irq(smmu_dev->irq, smmu_dev->isr, IRQF_DISABLED, 
+	if(request_irq(smmu_dev->irq, smmu_dev->isr, IRQF_TRIGGER_RISING, 
             "ivp-smmu-isr", (void *)smmu_dev)){
         pr_err("%s: failed to request IRQ[%d]\n", __func__, smmu_dev->irq);
 	}
@@ -547,3 +547,4 @@ module_init(ivp_smmu_init);
 module_exit(ivp_smmu_exit);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("hisilicon");
+
