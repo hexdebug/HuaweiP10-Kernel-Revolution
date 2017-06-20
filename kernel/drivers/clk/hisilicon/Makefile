@@ -1,4 +1,9 @@
-obj-$(CONFIG_HI3xxx_CLK_CORE)		+= clk-hi3xxx.o clk-hi3716.o
-obj-$(CONFIG_HI3620_CLK_MIPI_DSI)	+= clk-hi3620-dsi.o
-obj-y		+= clk-hi3xxx.o
-obj-$(CONFIG_HISI_CLK_MAILBOX_SUPPORT)	+= hisi-clk-mailbox.o
+#
+# Hisilicon Clock specific Makefile
+#
+
+obj-y	+= clk.o clkgate-separated.o
+
+obj-$(CONFIG_ARCH_HI3xxx)	+= clk-hi3620.o
+obj-$(CONFIG_ARCH_HIP04)	+= clk-hip04.o
+obj-$(CONFIG_ARCH_HIX5HD2)	+= clk-hix5hd2.o

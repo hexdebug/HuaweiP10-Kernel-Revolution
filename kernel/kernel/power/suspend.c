@@ -511,7 +511,9 @@ static int enter_state(suspend_state_t state)
 	printk("done.\n");
 
 #else
+	hisi_sys_sync_queue();
 
+	error = hisi_sys_sync_wait();
 
         if (error) {
                printk("PM: sys_sync timeout.\n");

@@ -16,9 +16,6 @@
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/err.h>
-#ifdef CONFIG_HISI_CLK_DEBUG
-#include <linux/clk-private.h>
-#endif
 
 /*
  * DOC: basic adjustable multiplexer clock that cannot gate
@@ -45,7 +42,7 @@ static u8 clk_mux_get_parent(struct clk_hw *hw)
 	 * OTOH, pmd_trace_clk_mux_ck uses a separate bit for each clock, so
 	 * val = 0x4 really means "bit 2, index starts at bit 0"
 	 */
-	val = readl(mux->reg) >> mux->shift;
+	val = clk_readl(mux->reg) >> mux->shift;
 	val &= mux->mask;
 
 	if (mux->table) {
@@ -53,8 +50,8 @@ static u8 clk_mux_get_parent(struct clk_hw *hw)
 
 		for (i = 0; i < num_parents; i++)
 			if (mux->table[i] == val)
-				return i;
-		return 0;
+				return i;/*[false alarm]:return */
+		return -EINVAL;
 	}
 
 	if (val && (mux->flags & CLK_MUX_INDEX_BIT))
@@ -64,7 +61,7 @@ static u8 clk_mux_get_parent(struct clk_hw *hw)
 		val--;
 
 	if (val >= num_parents)
-		return 0;
+		return -EINVAL;
 
 	return val;
 }
@@ -73,7 +70,6 @@ static int clk_mux_set_parent(struct clk_hw *hw, u8 index)
 {
 	struct clk_mux *mux = to_clk_mux(hw);
 	u32 val;
-	u8 width = 0;
 	unsigned long flags = 0;
 
 	if (mux->table)
@@ -81,7 +77,7 @@ static int clk_mux_set_parent(struct clk_hw *hw, u8 index)
 
 	else {
 		if (mux->flags & CLK_MUX_INDEX_BIT)
-			index = (1 << ffs(index));
+			index = 1 << index;
 
 		if (mux->flags & CLK_MUX_INDEX_ONE)
 			index++;
@@ -90,17 +86,14 @@ static int clk_mux_set_parent(struct clk_hw *hw, u8 index)
 	if (mux->lock)
 		spin_lock_irqsave(mux->lock, flags);
 
-	val = readl(mux->reg);
-	val &= ~(mux->mask << mux->shift);
-	val |= index << mux->shift;
 	if (mux->flags & CLK_MUX_HIWORD_MASK) {
-		width = fls(mux->mask) - ffs(mux->mask) + 1;
-		if (width + mux->shift > 16)
-			pr_warn("mux value exceeds LOWORD field\n");
-		else
-			val |= mux->mask << (mux->shift + 16);
+		val = mux->mask << (mux->shift + 16);
+	} else {
+		val = clk_readl(mux->reg);
+		val &= ~(mux->mask << mux->shift);
 	}
-	writel(val, mux->reg);
+	val |= index << mux->shift;
+	clk_writel(val, mux->reg);
 
 	if (mux->lock)
 		spin_unlock_irqrestore(mux->lock, flags);
@@ -109,7 +102,7 @@ static int clk_mux_set_parent(struct clk_hw *hw, u8 index)
 }
 
 #ifdef CONFIG_HISI_CLK_DEBUG
-static int k3_selreg_check(struct clk_hw *hw)
+static int hisi_selreg_check(struct clk_hw *hw)
 {
 	struct clk_mux *mux = to_clk_mux(hw);
 	struct clk *clk = hw->clk;
@@ -123,11 +116,10 @@ static int k3_selreg_check(struct clk_hw *hw)
 	if (val && (mux->flags & CLK_MUX_INDEX_ONE))
 		val--;
 
-	if(NULL == clk->parents) {
-		return 3; 
-	}
+	if (NULL == __clk_get_parent(clk))
+		return 3;
 
-	if (clk->parents[val] == clk_get_parent(clk))
+	if (clk_get_parent_by_index(clk, val) == __clk_get_parent(clk))
 		return 1;
 	else
 		return 0;
@@ -139,10 +131,15 @@ const struct clk_ops clk_mux_ops = {
 	.set_parent = clk_mux_set_parent,
 	.determine_rate = __clk_mux_determine_rate,
 #ifdef CONFIG_HISI_CLK_DEBUG
-	.check_selreg = k3_selreg_check,
+	.check_selreg = hisi_selreg_check,
 #endif
 };
 EXPORT_SYMBOL_GPL(clk_mux_ops);
+
+const struct clk_ops clk_mux_ro_ops = {
+	.get_parent = clk_mux_get_parent,
+};
+EXPORT_SYMBOL_GPL(clk_mux_ro_ops);
 
 struct clk *clk_register_mux_table(struct device *dev, const char *name,
 		const char **parent_names, u8 num_parents, unsigned long flags,
@@ -152,6 +149,15 @@ struct clk *clk_register_mux_table(struct device *dev, const char *name,
 	struct clk_mux *mux;
 	struct clk *clk;
 	struct clk_init_data init;
+	u8 width = 0;
+
+	if (clk_mux_flags & CLK_MUX_HIWORD_MASK) {
+		width = fls(mask) - ffs(mask) + 1;
+		if (width + shift > 16) {
+			pr_err("mux value exceeds LOWORD field\n");
+			return ERR_PTR(-EINVAL);
+		}
+	}
 
 	/* allocate the mux */
 	mux = kzalloc(sizeof(struct clk_mux), GFP_KERNEL);
@@ -161,7 +167,10 @@ struct clk *clk_register_mux_table(struct device *dev, const char *name,
 	}
 
 	init.name = name;
-	init.ops = &clk_mux_ops;
+	if (clk_mux_flags & CLK_MUX_READ_ONLY)
+		init.ops = &clk_mux_ro_ops;
+	else
+		init.ops = &clk_mux_ops;
 	init.flags = flags | CLK_IS_BASIC;
 	init.parent_names = parent_names;
 	init.num_parents = num_parents;
@@ -196,3 +205,19 @@ struct clk *clk_register_mux(struct device *dev, const char *name,
 				      NULL, lock);
 }
 EXPORT_SYMBOL_GPL(clk_register_mux);
+
+void clk_unregister_mux(struct clk *clk)
+{
+	struct clk_mux *mux;
+	struct clk_hw *hw;
+
+	hw = __clk_get_hw(clk);
+	if (!hw)
+		return;
+
+	mux = to_clk_mux(hw);
+
+	clk_unregister(clk);
+	kfree(mux);
+}
+EXPORT_SYMBOL_GPL(clk_unregister_mux);

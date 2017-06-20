@@ -36,11 +36,40 @@ static char abort_reason[MAX_SUSPEND_ABORT_LEN];
 static struct kobject *wakeup_reason;
 static DEFINE_SPINLOCK(resume_reason_lock);
 
-static struct timespec last_xtime; /* wall time before last suspend */
-static struct timespec curr_xtime; /* wall time after last suspend */
-static struct timespec last_stime; /* total_sleep_time before last suspend */
-static struct timespec curr_stime; /* total_sleep_time after last suspend */
+static ktime_t last_monotime; /* monotonic time before last suspend */
+static ktime_t curr_monotime; /* monotonic time after last suspend */
+static ktime_t last_stime; /* monotonic boottime offset before last suspend */
+static ktime_t curr_stime; /* monotonic boottime offset after last suspend */
 
+#ifdef CONFIG_HISI_SR
+#define IRQ_NAME_LEN	(128UL)
+extern const char **g_ap_irq_name;
+
+static ssize_t last_resume_reason_show(struct kobject *kobj, struct kobj_attribute *attr,
+		char *buf)
+{
+	int irq_no, buf_offset = 0;
+	char irq_name[IRQ_NAME_LEN] = {0};
+
+	spin_lock(&resume_reason_lock);
+	if (suspend_abort) {
+		buf_offset = sprintf(buf, "Abort: %s", abort_reason);
+	} else {
+		for (irq_no = 0; irq_no < irqcount; irq_no++) {
+			if (g_ap_irq_name && g_ap_irq_name[irq_list[irq_no]]) {
+				strncpy(irq_name, g_ap_irq_name[irq_list[irq_no]], (IRQ_NAME_LEN - 1));
+				buf_offset += snprintf(buf + buf_offset, IRQ_NAME_LEN,
+						"%d %s\n", irq_list[irq_no], irq_name);
+			} else {
+				buf_offset += sprintf(buf + buf_offset, "%d\n",
+						irq_list[irq_no]);
+			}
+		}
+	}
+	spin_unlock(&resume_reason_lock);
+	return buf_offset;
+}
+#else
 static ssize_t last_resume_reason_show(struct kobject *kobj, struct kobj_attribute *attr,
 		char *buf)
 {
@@ -63,6 +92,7 @@ static ssize_t last_resume_reason_show(struct kobject *kobj, struct kobj_attribu
 	spin_unlock(&resume_reason_lock);
 	return buf_offset;
 }
+#endif
 
 static ssize_t last_suspend_time_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
@@ -71,14 +101,22 @@ static ssize_t last_suspend_time_show(struct kobject *kobj,
 	struct timespec total_time;
 	struct timespec suspend_resume_time;
 
-	sleep_time = timespec_sub(curr_stime, last_stime);
-	total_time = timespec_sub(curr_xtime, last_xtime);
-	suspend_resume_time = timespec_sub(total_time, sleep_time);
+	/*
+	 * total_time is calculated from monotonic bootoffsets because
+	 * unlike CLOCK_MONOTONIC it include the time spent in suspend state.
+	 */
+	total_time = ktime_to_timespec(ktime_sub(curr_stime, last_stime));
 
 	/*
-	 * suspend_resume_time is calculated from sleep_time. Userspace would
-	 * always need both. Export them in pair here.
+	 * suspend_resume_time is calculated as monotonic (CLOCK_MONOTONIC)
+	 * time interval before entering suspend and post suspend.
 	 */
+	suspend_resume_time = ktime_to_timespec(ktime_sub(curr_monotime, last_monotime));
+
+	/* sleep_time = total_time - suspend_resume_time */
+	sleep_time = timespec_sub(total_time, suspend_resume_time);
+
+	/* Export suspend_resume_time and sleep_time in pair here. */
 	return sprintf(buf, "%lu.%09lu %lu.%09lu\n",
 				suspend_resume_time.tv_sec, suspend_resume_time.tv_nsec,
 				sleep_time.tv_sec, sleep_time.tv_nsec);
@@ -151,7 +189,7 @@ void log_suspend_abort_reason(const char *fmt, ...)
 
 	suspend_abort = true;
 	va_start(args, fmt);
-	snprintf(abort_reason, MAX_SUSPEND_ABORT_LEN, fmt, args);
+	vsnprintf(abort_reason, MAX_SUSPEND_ABORT_LEN, fmt, args);
 	va_end(args);
 	spin_unlock(&resume_reason_lock);
 }
@@ -160,19 +198,22 @@ void log_suspend_abort_reason(const char *fmt, ...)
 static int wakeup_reason_pm_event(struct notifier_block *notifier,
 		unsigned long pm_event, void *unused)
 {
-	struct timespec xtom; /* wall_to_monotonic, ignored */
-
 	switch (pm_event) {
 	case PM_SUSPEND_PREPARE:
 		spin_lock(&resume_reason_lock);
 		irqcount = 0;
 		suspend_abort = false;
 		spin_unlock(&resume_reason_lock);
-
-	
+		/* monotonic time since boot */
+		last_monotime = ktime_get();
+		/* monotonic time since boot including the time spent in suspend */
+		last_stime = ktime_get_boottime();
 		break;
 	case PM_POST_SUSPEND:
-
+		/* monotonic time since boot */
+		curr_monotime = ktime_get();
+		/* monotonic time since boot including the time spent in suspend */
+		curr_stime = ktime_get_boottime();
 		break;
 	default:
 		break;

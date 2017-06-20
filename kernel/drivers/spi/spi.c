@@ -142,6 +142,10 @@ static int spi_drv_probe(struct device *dev)
 	const struct spi_driver		*sdrv = to_spi_driver(dev->driver);
 	int ret;
 
+	ret = of_clk_set_defaults(dev->of_node, false);
+	if (ret)
+		return ret;
+
 	ret = dev_pm_domain_attach(dev, true);
 	if (ret != -EPROBE_DEFER) {
 		ret = sdrv->probe(to_spi_device(dev));

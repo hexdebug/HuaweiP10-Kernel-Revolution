@@ -1295,4 +1295,3 @@ module_platform_driver(ivp_platform_driver);
 
 MODULE_DESCRIPTION("hisilicon_ivp driver");
 MODULE_LICENSE("GPL");
-

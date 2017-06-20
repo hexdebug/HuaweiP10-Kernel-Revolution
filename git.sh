@@ -1,4 +1,4 @@
 #!/bin/bash
 git add .
-git commit -m "Broken: No boot - Researching on fuc**ng bug of no save pictures.."
+git commit -m "Varius updates/fixes (auto-script)"
 git push -u origin master
